@@ -1,0 +1,37 @@
+<template>
+  <lightning-card lwc:if={showCard} icon-name={cardIcon} title={computedTitle}>
+    <div class="slds-p-around_medium">
+      <c-graphql-record-form-body
+        is-loading={isLoading}
+        has-error={hasError}
+        error-message={errorMessage}
+        sections={sections}
+        is-save-disabled={isSaveDisabled}
+        hide-cancel-button={hideCancelButton}
+        save-button-label={saveButtonLabel}
+        cancel-button-label={cancelButtonLabel}
+        onfieldchange={handleFieldChange}
+        onsave={handleSave}
+        oncancel={handleCancel}
+      ></c-graphql-record-form-body>
+    </div>
+  </lightning-card>
+  <template lwc:else>
+    <div class="slds-p-around_medium">
+      <h2 class="slds-text-heading_medium slds-m-bottom_medium">{computedTitle}</h2>
+      <c-graphql-record-form-body
+        is-loading={isLoading}
+        has-error={hasError}
+        error-message={errorMessage}
+        sections={sections}
+        is-save-disabled={isSaveDisabled}
+        hide-cancel-button={hideCancelButton}
+        save-button-label={saveButtonLabel}
+        cancel-button-label={cancelButtonLabel}
+        onfieldchange={handleFieldChange}
+        onsave={handleSave}
+        oncancel={handleCancel}
+      ></c-graphql-record-form-body>
+    </div>
+  </template>
+</template>

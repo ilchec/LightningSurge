@@ -1,0 +1,11 @@
+<template>
+  <template lwc:if={diagnosticsText}>
+    <div class="slds-p-around_medium">
+      <p class="slds-m-bottom_small">
+        Could not determine the object to create records for. Copy the context below and share it so this can be fixed:
+      </p>
+      <pre class="slds-scrollable_x">{diagnosticsText}</pre>
+      <lightning-button label="Close" onclick={handleDiagnosticsClose} class="slds-m-top_small"></lightning-button>
+    </div>
+  </template>
+</template>

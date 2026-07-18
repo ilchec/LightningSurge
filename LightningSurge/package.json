@@ -1,0 +1,14 @@
+{
+  "name": "lightning-surge",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Unit test tooling for the Lightning Surge LWC topics. See README.md for the repo's SFDX package structure.",
+  "scripts": {
+    "test:unit": "sfdx-lwc-jest",
+    "test:unit:watch": "sfdx-lwc-jest --watch",
+    "test:unit:coverage": "sfdx-lwc-jest --coverage"
+  },
+  "devDependencies": {
+    "@salesforce/sfdx-lwc-jest": "latest"
+  }
+}
