@@ -12,54 +12,39 @@ Like every other topic in this repo, this package deploys entirely on its own:
 sf project deploy start --source-dir salesforceInspectorNative
 ```
 
-Its Create Records tab needs the whole `multiRecordEntry` record-entry subsystem (the grid/CSV/
-matching/save engine itself, plus its six dependencies - CSV utils, the query bridge, column/
-mutation utils, shared utils, the mapping dialog, and the form-field renderer). Rather than depend
-on the `multiRecordEntry` package also being deployed, all seven bundles are **vendored here** -
-the same "copy it in" convention this repo already uses for smaller pieces (see the top-level
-[`README.md`](../README.md)'s "Why duplication instead of a shared common package" section), just
-at the scale of a whole feature instead of one utility file.
+Its Create Records tab is built on a self-contained bulk create/upsert grid engine
+(`inspectorNativeRecordEntry`) plus six supporting bundles - CSV utils, the query bridge, column/
+mutation utils, shared utils, the mapping dialog, and the form-field renderer - every one of them
+under this package's own `inspectorNative` prefix (`inspectorNativeCsvUtils`,
+`inspectorNativeQueryBridge`, `inspectorNativeRecordEntryUtils`, `inspectorNativeSharedUtils`,
+`inspectorNativeMapping`, `inspectorNativeFormField`). Nothing here is imported from outside this
+package - the same "copy what you need in, trimmed to what's actually used" convention this repo
+uses everywhere (see the top-level [`README.md`](../README.md)'s "Why duplication instead of a
+shared common package" section).
 
-Every bundle in this package carries this package's own `inspectorNative` prefix
-(`inspectorNativeCsvUtils`, `inspectorNativeQueryBridge`, `inspectorNativeRecordEntryUtils`,
-`inspectorNativeSharedUtils`, `inspectorNativeMapping`, `inspectorNativeFormField`, and
-`inspectorNativeRecordEntry`) rather than reusing `multiRecordEntry`'s bundle names, so none of
-them can ever collide with their `multiRecordEntry` counterparts if both packages are deployed to
-the same org - regardless of whether the two copies' contents stay in sync. That wasn't always the
-case: the first six used to be kept byte-identical, same-name copies specifically so they'd be
-safely interchangeable if both packages coexisted in one org. Once every bundle in this repo got a
-unique, package-specific prefix instead of a mix of `graphql`/`salesforceInspectorNative`, that
-same-name-for-safety trick became unnecessary and was dropped in favor of consistent naming.
-**The six utility bundles are still logically kept in sync by hand with their `multiRecordEntry`
-originals** (same behavior, different name, for maintainability rather than collision safety) - a
-bug fix to shared logic still needs to be applied in both places; nothing enforces that
-automatically.
-
-**`inspectorNativeRecordEntry` (the entry component itself) was already not identical, even before
-the rename.** `multiRecordEntry`'s `graphqlMultiRecordEntry` is a `LightningModal`, opened via
-`.open()` from a Quick Action or List View button. This package's Create Records tab needed
-something different: no popup, rendered directly on the page below the object/layout selectors
-(see "What's in it" below). So the vendored copy here was forked - same grid/CSV/matching/save
-engine (that ~900-line core was left untouched), but a plain `LightningElement` instead of a
-`LightningModal`, with `done`/`cancel` events instead of resolving a Promise from `.close()`.
-Porting a core-logic bug fix between the two means adapting it across that shell difference, not
-just copy-pasting.
+> This grid engine was originally forked from a standalone `multiRecordEntry` topic (a bulk
+> create/upsert modal opened from a Quick Action or List View button), back when both existed side
+> by side in this repo. `multiRecordEntry` has since been retired - its functionality is fully
+> covered by this tab now, so keeping a second, separate copy of the same engine around no longer
+> served any purpose. `inspectorNativeRecordEntry` is the sole surviving, original copy: a plain
+> `LightningElement` (not the `LightningModal` the original was), rendered directly on the page
+> below the object/layout selectors rather than opened as a popup - that's what this tab always
+> needed, independent of anything else that used to live elsewhere in the repo.
 
 It's since grown a second entry path of its own, `queryMode` (used by Query Records - see below):
 instead of resolving a create-mode layout, it seeds the grid with already-queried existing records
 and builds columns directly from a given field list, with every touched row saving as an update
-against its own known Id rather than a create. This lives only in this forked copy - it isn't
-something `multiRecordEntry`'s modal needs today, and the fork exists precisely so this component
-is free to diverge like this without an obligation to mirror it back.
+against its own known Id rather than a create.
 
 ## What's in it
 
 - **Create Records tab** - one row of selectors: pick an object from a live, permission-aware list,
   then pick a layout (Default Layout, a specific Record Type, All Fields, or Required Only) from
-  the same row. Once both are chosen, the bulk create/upsert grid - documented in
-  [`multiRecordEntry/README.md`](../multiRecordEntry/README.md); everything there about the grid
-  itself (CSV import, matching/upsert, save modes, Field View/Table View, and so on) applies here
-  unchanged - renders directly below the selectors, no modal. Finishing or cancelling resets the
+  the same row. Once both are chosen, the bulk create/upsert grid - CSV import (with column
+  auto-mapping), match-key upserts against existing records, a Field View/Table View toggle (see
+  the Query Records bullet below for what each mode is), and save-mode options like ignoring
+  layout-required fields - renders directly below the selectors, no modal. Finishing or cancelling
+  resets the
   selectors so you're ready to pick another object; the results screen already gives clickable
   links to every saved record, so there's no separate navigation step afterward.
 - **Query Records tab** - type a SOQL query and run it. The results render in the same Field
@@ -209,6 +194,18 @@ ones.
      rights; assigning the Salesforce Inspector Native permission set to someone without them still
      lets them use Create Records/Query Records fine, but Field Creator will fail with a clear
      permission error.
+   - If your org has **API Allowlisting** turned on (Setup → API Access Control → "limit API access
+     to only allowlisted connected apps"), Field Creator's Tooling API callout will fail with
+     `This session is not valid for use with the REST API` - a session obtained via
+     `UserInfo.getSessionId()` from Lightning Experience isn't valid for REST/Tooling API calls
+     under that setting unless the calling context is allowlisted. The fix is the **"Use Any API
+     Client"** system permission - confirmed, the hard way, **not grantable through a deployed
+     Permission Set**: Metadata API rejects it (`Unknown user permission: UseAnyApiClient`) even
+     though the permission itself is real and assignable through the UI, apparently because it's
+     new enough that Metadata API support hasn't caught up yet. There's no package-level fix for
+     this - grant it manually: Setup → Users → Permission Sets (or the user's Profile) → System
+     Permissions → enable **"Use Any API Client"** → Save, for whichever user(s) actually hit this
+     error.
    - Permissions and Groups similarly needs the running user to hold **"Assign Permission Sets"**
      (for the Permission Set/Permission Set Group half) and **"Manage Public Groups"** (for the
      Public Group half) - again real Salesforce platform rules this permission set cannot grant or
@@ -244,7 +241,7 @@ ones.
 | `inspectorNativeLimitsAndLicenses` | Limits and Licenses tab shell - owns no state, just nests the two sub-tabs below, same convention as `inspectorNativeApp`. |
 | `inspectorNativeLimits` | Limits sub-tab: org limits as gauges via `InspectorNativeOrgInfo.getOrgLimits`. |
 | `inspectorNativeLicenses` | Licenses sub-tab: User/Permission Set License usage as bars via `InspectorNativeOrgInfo.getLicenseUsage`. |
-| `inspectorNativeRecordEntry` ‡ | The grid/CSV/matching/save engine, forked from `multiRecordEntry`'s `graphqlMultiRecordEntry` into a plain inline `LightningElement` (not a `LightningModal`) - see "Fully standalone" above. Also the only place `queryMode` (Query Records' edit-existing-records path, its trimmed-down toolbar, its View Only/Edit toggle, and CSV export) lives. |
+| `inspectorNativeRecordEntry` | The grid/CSV/matching/save engine - a plain inline `LightningElement` (not a `LightningModal`), originally forked from the now-retired `multiRecordEntry` topic, see "Fully standalone" above. Also the only place `queryMode` (Query Records' edit-existing-records path, its trimmed-down toolbar, its View Only/Edit toggle, and CSV export) lives. |
 | `InspectorNativeObjectPicker` (Apex) | Read-only, cacheable object list for the Create Records/Field Creator pickers. See "What's in it" above. |
 | `InspectorNativeSoqlRunner` (Apex) | Read-only SOQL execution for Query Records. See "What's in it" above. |
 | `InspectorNativeFieldCreator` (Apex) | Builds and POSTs a Tooling API `CustomField` payload per requested field, for Field Creator - writes to org schema, and the only Apex class in this app that performs an HTTP callout. See "What's in it" above (and the Remote Site Setting step in "Setting it up"). |
@@ -253,12 +250,4 @@ ones.
 | `InspectorNativeOrgInfo` (Apex) | Read-only license usage and org limit reads - for the Limits and Licenses tab. See "What's in it" above. |
 | Custom Tab / Custom Application (`Salesforce_Inspector_Native`) | App Launcher entry point. |
 | Permission Set (`Salesforce_Inspector_Native`) | Grants the app, its tab, and all six Apex classes - deliberately no object/field permissions, see "Setting it up" above. |
-| `inspectorNativeCsvUtils`, `inspectorNativeQueryBridge`, `inspectorNativeRecordEntryUtils`, `inspectorNativeSharedUtils`, `inspectorNativeMapping`, `inspectorNativeFormField` † | Vendored copies of `multiRecordEntry`'s own components (under this package's own naming - see "Fully standalone" above), kept logically identical by hand - see [`multiRecordEntry/README.md`](../multiRecordEntry/README.md) for what each one does. |
-
-† Kept logically identical to their `multiRecordEntry` counterparts by hand (e.g. `useDefaultLayout`
-on `resolveRecordTypeSelection` and `buildFieldModelForEdit` on the shared-utils bundle were both
-added to both copies) - see "Fully standalone" above for why they're duplicated rather than shared,
-and the maintenance cost that comes with it.
-
-‡ Not identical to `multiRecordEntry`'s `graphqlMultiRecordEntry` - deliberately forked (and, since,
-renamed along with every other bundle in this package), also explained in "Fully standalone" above.
+| `inspectorNativeCsvUtils`, `inspectorNativeQueryBridge`, `inspectorNativeRecordEntryUtils`, `inspectorNativeSharedUtils`, `inspectorNativeMapping`, `inspectorNativeFormField` | Supporting bundles for the grid above: CSV parsing/mapping, the GraphQL query-to-Promise bridge, column/mutation-building utilities, shared toast/navigation/field-model helpers, the CSV-to-field mapping dialog, and the typed form-field renderer. Originally forked from the now-retired `multiRecordEntry` topic (see "Fully standalone" above) - self-contained now, not vendored from or kept in sync with anything outside this package. |

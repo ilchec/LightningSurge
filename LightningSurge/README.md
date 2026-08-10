@@ -14,66 +14,53 @@ This is a standard SFDX project (`sfdx-project.json`) with one **package directo
 each mirroring the usual `<topic>/main/default/...` metadata layout:
 
 ```
-multiRecordEntry/          → main/default/lwc/...   (see multiRecordEntry/README.md)
 salesforceInspectorNative/ → main/default/lwc/...   (see salesforceInspectorNative/README.md)
-force-app/                  → main/default/lwc/...   (everything not yet split into its own topic)
+relatedListReloaded/       → main/default/lwc/...   (see relatedListReloaded/README.md)
 ```
 
 ### Topics
 
 | Topic | What it is |
 |---|---|
-| [`multiRecordEntry`](multiRecordEntry/README.md) | Bulk create/upsert any object's records in a spreadsheet-style modal, with CSV import/export, match-key upserts, and a layout/Record Type picker. |
-| [`salesforceInspectorNative`](salesforceInspectorNative/README.md) | Standalone Lightning app (App Launcher entry point), meant to grow into a home for more than one tool over time. Today it has three tabs — Create Records (a row of object/layout selectors with a forked, inline, not modal, copy of `multiRecordEntry`'s record-entry grid rendered below them, see below), Query Records, and Field Creator — independently deployable like every other topic. |
+| [`salesforceInspectorNative`](salesforceInspectorNative/README.md) | Standalone Lightning app (App Launcher entry point), meant to grow into a home for more than one tool over time. Today it has five tabs — Create Records (a row of object/layout selectors with an inline, not modal, record-entry grid rendered below them, see below), Query Records, Field Creator, Permissions and Groups, and Limits and Licenses — independently deployable like every other topic. |
+| [`relatedListReloaded`](relatedListReloaded/README.md) | A Lightning Record Page component standing in for the standard related list - same look/behavior plus an inline Expand toggle and a filter per column. The first topic here with **zero Apex** - column config and records both come from base UI API wire adapters and `lightning/graphql`. |
 
-`force-app` is the original, not-yet-split package directory. It currently holds:
-
-| Component | What it is |
-|---|---|
-| `graphqlDatatable` | A datatable powered by GraphQL instead of Apex, with optional search, sort, pagination, and inline editing. |
-| `graphqlRecordForm` | Drop-in replacement for the standard new/edit record form, powered by GraphQL. |
-| `graphqlRecordFormBody`, `graphqlRecordFormField`, `graphqlRecordFormUtils` | Internal helpers shared by `graphqlRecordForm` (`graphqlRecordFormField` is also vendored into `multiRecordEntry` — see below). |
-| `graphqlMapView` | Configurable map component that plots record locations via the Google Maps API. |
-| `datatableUtils` | Toast and record-navigation helpers shared across the datatable-family components. |
-| `datatableExtension`, `datatableLookup`, `datatablePagination` | Supporting pieces for the datatable components (custom lookup cell type, pagination bar). |
-| `dragAndDrop` | HTML Drag and Drop API usage example. |
-
-These haven't been split into their own topic folders yet. When one of them becomes the focus of
-new work, the pattern to follow is the same one `multiRecordEntry` already demonstrates (see next
-section).
+> This repo used to also have a `force-app` package directory (the original, not-yet-split
+> collection of GraphQL components: a datatable, a record form, a map view, and their shared
+> helpers) and a `multiRecordEntry` topic (a standalone bulk create/upsert modal). Both have been
+> retired now that nothing in this repo still needs them - `multiRecordEntry`'s functionality was
+> fully absorbed into `salesforceInspectorNative`'s Create Records tab, and `force-app` had no
+> remaining active consumers. Neither was ever a runtime dependency of another topic (every topic
+> here vendors what it needs rather than depending cross-folder - see "Why duplication instead of a
+> shared common package" below), so removing them didn't require touching any other topic's code -
+> only the documentation that referenced them as historical/pattern sources, which has been updated
+> to describe the current state directly instead.
 
 ## Why duplication instead of a shared common package
 
-`graphqlRecordFormField` is used by both a `force-app` component (`graphqlRecordForm`) and by
-`multiRecordEntry`. Rather than factor it into a third, shared package directory that every topic
-would then depend on, `multiRecordEntry` keeps its own vendored copy. That keeps every topic
-deployable in complete isolation, at the cost of some duplication: a bug fix in a vendored file
-needs to be applied in both places if both are still in use. The vendored copy says so in its own
-doc comment.
+No topic here depends on another topic's folder. If a topic needs a helper that conceptually
+resembles something in another topic, the convention is to **copy it in, trimmed to what's actually
+used**, not to factor it into a third, shared package directory that every topic would then depend
+on. That keeps every topic deployable in complete isolation, at the cost of some duplication: a bug
+fix in a vendored piece of logic needs to be applied everywhere a copy of it still lives. A vendored
+file should say so in its own doc comment.
 
-This doesn't have to mean copying a whole file verbatim, either — `multiRecordEntry` also has its
-own `graphqlMultiRecordEntrySharedUtils`, which consolidates what would otherwise have been two
-more vendored copies (of `datatableUtils` and `graphqlRecordFormUtils`) into one file, trimmed down
-to only the functions that package actually calls. Prefer trimming a vendored copy to what's
-actually used over carrying along an entire unrelated API surface.
+`salesforceInspectorNative` is the clearest live example: its Create Records tab's record-entry
+grid, CSV import, column/mutation utilities, and shared toast/navigation helpers are all its own,
+self-contained bundles (`inspectorNativeRecordEntry`, `inspectorNativeCsvUtils`,
+`inspectorNativeRecordEntryUtils`, `inspectorNativeSharedUtils`, and so on) - nothing here is
+imported from anywhere outside the package. `inspectorNativeSharedUtils` in particular demonstrates
+the "trim, don't carry the whole API surface" half of the convention: it consolidates several
+narrow toast/navigation/field-model helpers into one file, holding only the functions
+`salesforceInspectorNative` actually calls rather than a full generic utility library.
+`relatedListReloaded`'s `reloadedListUtils` and `reloadedListPagination` follow the same shape for a
+different feature - see [`relatedListReloaded/README.md`](relatedListReloaded/README.md).
 
-If a future topic needs one of these same helpers, copy (and trim) it in rather than introducing a
-shared dependency between topic folders — that's the convention this repo is built around.
-
-The duplication doesn't have to stay small, either: `salesforceInspectorNative`'s Create Records
-tab needs the *entire* `multiRecordEntry` record-entry engine plus its six dependencies — CSV
-utils, the query bridge, column/mutation utils, shared utils, the mapping dialog, and the
-form-field renderer — so all seven bundles are vendored into `salesforceInspectorNative`, each
-under its own `inspectorNative`-prefixed name (e.g. `inspectorNativeCsvUtils`,
-`inspectorNativeSharedUtils`) rather than reusing `multiRecordEntry`'s bundle names, so none of
-them can ever collide if both topics are ever deployed to the same org together. Six of them are
-full, logically-identical duplicates of their `multiRecordEntry` originals kept in sync by hand —
-unlike a deliberately-trimmed vendored copy (like `graphqlMultiRecordEntrySharedUtils` above). The
-seventh — the entry component itself, `inspectorNativeRecordEntry` — was forked, not just copied:
-`salesforceInspectorNative` needed it to render inline instead of as a popup modal, so it's a plain
-`LightningElement` there rather than a `LightningModal`. See
-[`salesforceInspectorNative/README.md`](salesforceInspectorNative/README.md) for the full
-naming/forking breakdown.
+If a future topic needs something that looks similar to logic already living in one of these
+packages, copy (and trim) it in rather than introducing a shared dependency between topic folders -
+that's the convention this repo is built around, and it's what keeps
+`sf project deploy start --source-dir <topic>` reliably working on its own for every topic, with no
+risk of a topic quietly breaking because some other, unrelated topic changed.
 
 ## Adding a new topic
 
@@ -81,19 +68,21 @@ naming/forking breakdown.
 2. Move in the LWCs that belong exclusively to it. For any dependency also used elsewhere, copy
    (don't move) it in — trimmed to what's actually used, consolidating multiple small dependencies
    into one file where that makes sense — and leave the original where it is.
-3. Copy `force-app/main/default/lwc/jsconfig.json` into the new `lwc/` folder (VS Code's LWC
-   tooling expects one per `lwc` root; not deployed or git-tracked, matching the existing folders).
+3. Copy an existing topic's `main/default/lwc/jsconfig.json` (e.g.
+   `salesforceInspectorNative/main/default/lwc/jsconfig.json`) into the new `lwc/` folder (VS Code's
+   LWC tooling expects one per `lwc` root; not deployed or git-tracked, matching the existing
+   folders).
 4. Add an entry to `sfdx-project.json`'s `packageDirectories`.
 5. Add a row to the topic table above, and write `<topicName>/README.md` covering what it does and
-   how to deploy/configure/use it — see `multiRecordEntry/README.md` for the level of detail
-   expected.
+   how to deploy/configure/use it — see `salesforceInspectorNative/README.md` for the level of
+   detail expected.
 
 ## Deploying
 
 Deploy a single topic:
 
 ```bash
-sf project deploy start --source-dir multiRecordEntry
+sf project deploy start --source-dir salesforceInspectorNative
 ```
 
 Deploy everything registered in `sfdx-project.json`:

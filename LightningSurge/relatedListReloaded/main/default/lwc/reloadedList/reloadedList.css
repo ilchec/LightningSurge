@@ -1,0 +1,61 @@
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.object-icon-container {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.25rem;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.object-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.related-list-table th,
+.related-list-table td {
+  vertical-align: middle;
+}
+
+.sortable-header {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.sort-icon {
+  opacity: 0.3;
+}
+
+.sort-icon_active {
+  opacity: 1;
+}
+
+.filter-row th {
+  padding-top: 0;
+  padding-bottom: 0.5rem;
+}
+
+.row-actions-col {
+  width: 3rem;
+  white-space: nowrap;
+}
+
+.cell-link {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* No overflow here on purpose - unlike Field Creator's fixed-width table, this table's column
+   count is whatever the object's page layout configures (usually a handful), and clipping via
+   overflow would also clip the per-row Edit/Delete button-menu dropdown when it opens near the
+   table's edge. A very wide table falls back to the page's own horizontal scroll instead. */

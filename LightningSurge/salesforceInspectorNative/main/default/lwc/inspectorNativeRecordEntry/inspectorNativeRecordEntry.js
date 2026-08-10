@@ -67,12 +67,12 @@ const VIEW_MODE_TABLE = 'table';
  * editability come from the object's create-mode page layout (respecting field-level security).
  * All reads/writes use the UI API GraphQL wire adapter - no Apex.
  *
- * Unlike `multiRecordEntry`'s `graphqlMultiRecordEntry` (a `LightningModal`, opened via `.open()`),
- * this is a plain inline component: the caller sets `objectApiName` (and, to skip this
- * component's own Record-Type-picker screen, `recordTypeId`/`showAllFields`/`requiredFieldsOnly`)
- * as ordinary `@api` props and renders it directly in markup. It signals completion via `done`/
- * `cancel` events instead of resolving a Promise. See `salesforceInspectorNative/README.md` for
- * why this diverged from the vendored-copy pattern the rest of this package still follows.
+ * Unlike the `LightningModal`-based bulk create/upsert dialog this was originally forked from (see
+ * `salesforceInspectorNative/README.md`'s "Fully standalone" section), this is a plain inline
+ * component: the caller sets `objectApiName` (and, to skip this component's own Record-Type-picker
+ * screen, `recordTypeId`/`showAllFields`/`requiredFieldsOnly`) as ordinary `@api` props and renders
+ * it directly in markup. It signals completion via `done`/`cancel` events instead of resolving a
+ * Promise.
  * @alias InspectorNativeRecordEntry
  * @extends LightningElement
  * @hideconstructor

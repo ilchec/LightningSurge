@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>67.0</apiVersion>
+    <isExposed>false</isExposed>
+    <description>New/Edit modal for one reloadedList record, wrapping the base lightning-record-form (layout-type="Full") for standard, layout-driven fields. Internal helper component, not intended for standalone use.</description>
+</LightningComponentBundle>

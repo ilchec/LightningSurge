@@ -1,15 +1,11 @@
 {
   "packageDirectories": [
     {
-      "path": "force-app",
+      "path": "salesforceInspectorNative",
       "default": true
     },
     {
-      "path": "multiRecordEntry",
-      "default": false
-    },
-    {
-      "path": "salesforceInspectorNative",
+      "path": "relatedListReloaded",
       "default": false
     }
   ],

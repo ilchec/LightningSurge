@@ -1,0 +1,105 @@
+<template>
+  <lightning-card>
+    <span slot="title" class="header-title">
+      <span lwc:if={objectIconUrl} class="object-icon-container" style={objectIconContainerStyle}>
+        <img src={objectIconUrl} class="object-icon" alt="" />
+      </span>
+      <span>{headerLabel}</span>
+    </span>
+    <span slot="actions">
+      <lightning-button lwc:if={canCreate} label="New" onclick={handleNewClick} class="slds-m-right_x-small"></lightning-button>
+      <lightning-button lwc:if={canExpand} label={expandToggleLabel} onclick={handleToggleExpand}></lightning-button>
+    </span>
+
+    <lightning-spinner lwc:if={isLoading} alternative-text="Loading records" size="small"></lightning-spinner>
+
+    <div lwc:if={errorText} class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-around_small" role="alert">
+      <span>{errorText}</span>
+    </div>
+
+    <p lwc:if={hasNoRecords} class="slds-text-color_weak slds-p-around_small">No records to show.</p>
+
+    <div lwc:if={columns.length}>
+      <table class="slds-table slds-table_bordered slds-table_cell-buffer related-list-table">
+        <thead>
+          <tr class="slds-line-height_reset">
+            <template for:each={columns} for:item="column">
+              <th key={column.fieldApiName} scope="col">
+                <span lwc:if={column.sortable} class="sortable-header" data-field={column.fieldApiName} onclick={handleSort}>
+                  {column.label}
+                  <lightning-icon icon-name={column.sortIconName} size="xx-small" class={column.sortIconClass}></lightning-icon>
+                </span>
+                <span lwc:else>{column.label}</span>
+              </th>
+            </template>
+            <th class="row-actions-col" scope="col"><span class="slds-assistive-text">Actions</span></th>
+          </tr>
+          <tr class="slds-line-height_reset filter-row">
+            <template for:each={columns} for:item="column">
+              <th key={column.fieldApiName}>
+                <template lwc:if={column.filterable}>
+                  <lightning-combobox
+                    lwc:if={column.isBooleanFilter}
+                    variant="label-hidden"
+                    label={column.label}
+                    placeholder="Any"
+                    options={booleanFilterOptions}
+                    data-field={column.fieldApiName}
+                    onchange={handleBooleanFilterChange}
+                  ></lightning-combobox>
+                  <lightning-input
+                    lwc:else
+                    type={column.filterInputType}
+                    variant="label-hidden"
+                    label={column.label}
+                    placeholder="Filter..."
+                    data-field={column.fieldApiName}
+                    onchange={handleFilterChange}
+                  ></lightning-input>
+                </template>
+              </th>
+            </template>
+            <th class="row-actions-col"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <template for:each={displayRows} for:item="row">
+            <tr key={row.id}>
+              <template for:each={row.cells} for:item="cell">
+                <td key={cell.key}>
+                  <a lwc:if={cell.isFirstColumn} href="#" data-id={row.id} onclick={handleRowClick} class="cell-link">
+                    <template lwc:if={cell.isBoolean}>
+                      <lightning-icon lwc:if={cell.value} icon-name="utility:check" size="x-small" variant="success" alternative-text="True"></lightning-icon>
+                      <lightning-icon lwc:else icon-name="utility:close" size="x-small" alternative-text="False"></lightning-icon>
+                    </template>
+                    <template lwc:else>{cell.value}</template>
+                  </a>
+                  <template lwc:elseif={cell.isBoolean}>
+                    <lightning-icon lwc:if={cell.value} icon-name="utility:check" size="x-small" variant="success" alternative-text="True"></lightning-icon>
+                    <lightning-icon lwc:else icon-name="utility:close" size="x-small" alternative-text="False"></lightning-icon>
+                  </template>
+                  <span lwc:else>{cell.value}</span>
+                </td>
+              </template>
+              <td class="row-actions-col">
+                <lightning-button-menu alternative-text="Show actions" icon-size="x-small" data-id={row.id} onselect={handleRowAction}>
+                  <lightning-menu-item value="edit" label="Edit"></lightning-menu-item>
+                  <lightning-menu-item value="delete" label="Delete"></lightning-menu-item>
+                </lightning-button-menu>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+
+    <c-reloaded-list-pagination
+      lwc:if={showPagination}
+      pagination-label={paginationLabel}
+      is-first-page={isFirstPage}
+      is-last-page={isLastPage}
+      onprevious={handlePreviousPage}
+      onnext={handleNextPage}
+    ></c-reloaded-list-pagination>
+  </lightning-card>
+</template>

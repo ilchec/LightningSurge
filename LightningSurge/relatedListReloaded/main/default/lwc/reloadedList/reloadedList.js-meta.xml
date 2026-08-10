@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>67.0</apiVersion>
+    <isExposed>true</isExposed>
+    <masterLabel>Related List Reloaded</masterLabel>
+    <description>Standalone, GraphQL-powered stand-in for the standard Lightning related list - drop it on a record page and point it at a child relationship. See relatedListReloaded/README.md.</description>
+    <targets>
+        <target>lightning__RecordPage</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="lightning__RecordPage">
+            <property
+                name="relationshipApiName"
+                type="String"
+                label="Relationship API Name"
+                description="The child relationship to show, exactly as configured in Setup - e.g. Contacts, Opportunities, or a custom relationship name ending in __r."
+                required="true"
+            />
+            <property
+                name="rowsWhenCollapsed"
+                type="Integer"
+                label="Rows Shown When Collapsed"
+                description="How many rows to show before Expand is needed. Expanded view always shows up to 15 rows with pagination."
+                default="4"
+            />
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>
