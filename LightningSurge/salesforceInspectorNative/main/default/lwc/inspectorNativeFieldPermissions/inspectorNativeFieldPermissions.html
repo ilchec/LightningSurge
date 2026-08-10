@@ -1,0 +1,82 @@
+<template>
+  <lightning-modal-header label="Set Field Permissions"></lightning-modal-header>
+  <lightning-modal-body>
+    <lightning-input
+      type="search"
+      label="Search"
+      variant="label-hidden"
+      placeholder="Search permission sets..."
+      value={searchText}
+      onchange={handleSearchChange}
+      class="slds-m-bottom_small"
+    ></lightning-input>
+
+    <lightning-spinner lwc:if={isLoading} alternative-text="Loading permission sets" size="medium"></lightning-spinner>
+
+    <div lwc:if={errorText} class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error" role="alert">
+      <span>{errorText}</span>
+    </div>
+
+    <p lwc:if={hasNoResults} class="slds-text-color_weak slds-p-around_small">No permission sets found.</p>
+
+    <table lwc:if={rows.length} class="slds-table slds-table_bordered slds-table_cell-buffer">
+      <thead>
+        <tr class="slds-line-height_reset">
+          <th scope="col">Name</th>
+          <th scope="col" class="slds-text-align_center">
+            <lightning-input
+              type="checkbox"
+              variant="label-hidden"
+              label="Select all Edit"
+              checked={allEditSelected}
+              onchange={handleSelectAllEdit}
+            ></lightning-input>
+            Edit
+          </th>
+          <th scope="col" class="slds-text-align_center">
+            <lightning-input
+              type="checkbox"
+              variant="label-hidden"
+              label="Select all Read"
+              checked={allReadSelected}
+              onchange={handleSelectAllRead}
+            ></lightning-input>
+            Read
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <template for:each={rows} for:item="row">
+          <tr key={row.id}>
+            <td>{row.label}</td>
+            <td class="slds-text-align_center">
+              <lightning-input
+                type="checkbox"
+                variant="label-hidden"
+                label="Edit"
+                checked={row.editAccess}
+                data-id={row.id}
+                onchange={handleEditChange}
+              ></lightning-input>
+            </td>
+            <td class="slds-text-align_center">
+              <lightning-input
+                type="checkbox"
+                variant="label-hidden"
+                label="Read"
+                checked={row.readAccess}
+                data-id={row.id}
+                onchange={handleReadChange}
+              ></lightning-input>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </lightning-modal-body>
+  <lightning-modal-footer>
+    <lightning-button label="Cancel" onclick={handleCancel} class="slds-m-right_x-small"></lightning-button>
+    <lightning-button label="Apply to All Fields" onclick={handleApplyToAllFields} class="slds-m-right_x-small"></lightning-button>
+    <lightning-button variant="brand" label="Save" onclick={handleSave}></lightning-button>
+  </lightning-modal-footer>
+</template>

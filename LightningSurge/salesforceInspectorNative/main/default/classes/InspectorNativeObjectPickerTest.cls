@@ -1,16 +1,16 @@
 @IsTest
-private class SalesforceInspectorNativeObjectPickerControllerTest {
+private class InspectorNativeObjectPickerTest {
     @IsTest
     static void returnsASortedNonEmptyListIncludingAKnownStandardObject() {
         Test.startTest();
-        List<SalesforceInspectorNativeObjectPickerController.ObjectOption> options =
-            SalesforceInspectorNativeObjectPickerController.getCreatableObjects();
+        List<InspectorNativeObjectPicker.ObjectOption> options =
+            InspectorNativeObjectPicker.getCreatableObjects();
         Test.stopTest();
 
         System.assert(!options.isEmpty(), 'Expected at least one creatable object to be returned');
 
         Boolean foundAccount = false;
-        for (SalesforceInspectorNativeObjectPickerController.ObjectOption option : options) {
+        for (InspectorNativeObjectPicker.ObjectOption option : options) {
             System.assert(String.isNotBlank(option.apiName), 'Every option should have an apiName');
             System.assert(String.isNotBlank(option.label), 'Every option should have a label');
             if (option.apiName == 'Account') {
@@ -29,17 +29,17 @@ private class SalesforceInspectorNativeObjectPickerControllerTest {
 
     @IsTest
     static void excludesObjectsWithFilteredSuffixesAndNonCreateableObjects() {
-        List<SalesforceInspectorNativeObjectPickerController.ObjectOption> options =
-            SalesforceInspectorNativeObjectPickerController.getCreatableObjects();
+        List<InspectorNativeObjectPicker.ObjectOption> options =
+            InspectorNativeObjectPicker.getCreatableObjects();
 
-        for (SalesforceInspectorNativeObjectPickerController.ObjectOption option : options) {
+        for (InspectorNativeObjectPicker.ObjectOption option : options) {
             System.assert(!option.apiName.endsWith('__History'), 'History objects should be filtered out: ' + option.apiName);
             System.assert(!option.apiName.endsWith('__Share'), 'Share objects should be filtered out: ' + option.apiName);
             System.assert(!option.apiName.endsWith('__Feed'), 'Feed objects should be filtered out: ' + option.apiName);
         }
 
         Boolean foundAccountHistory = false;
-        for (SalesforceInspectorNativeObjectPickerController.ObjectOption option : options) {
+        for (InspectorNativeObjectPicker.ObjectOption option : options) {
             if (option.apiName == 'AccountHistory') {
                 foundAccountHistory = true;
             }

@@ -1,0 +1,64 @@
+<template>
+  <lightning-modal-header label="Set Field Options"></lightning-modal-header>
+  <lightning-modal-body>
+    <lightning-input
+      lwc:if={showLength}
+      type="number"
+      label="Length"
+      value={length}
+      onchange={handleLengthChange}
+      class="slds-m-bottom_small"
+    ></lightning-input>
+    <lightning-input
+      lwc:if={showVisibleLines}
+      type="number"
+      label="Visible Lines"
+      value={visibleLines}
+      onchange={handleVisibleLinesChange}
+      class="slds-m-bottom_small"
+    ></lightning-input>
+    <lightning-input
+      lwc:if={showPrecisionScale}
+      type="number"
+      label="Precision"
+      value={precision}
+      onchange={handlePrecisionChange}
+      class="slds-m-bottom_small"
+    ></lightning-input>
+    <lightning-input
+      lwc:if={showPrecisionScale}
+      type="number"
+      label="Scale"
+      value={scale}
+      onchange={handleScaleChange}
+      class="slds-m-bottom_small"
+    ></lightning-input>
+    <lightning-textarea
+      lwc:if={showPicklistValues}
+      label="Picklist Values (one per line)"
+      value={picklistValuesText}
+      onchange={handlePicklistValuesChange}
+      class="slds-m-bottom_small"
+    ></lightning-textarea>
+
+    <lightning-textarea label="Description" value={description} onchange={handleDescriptionChange} class="slds-m-bottom_small"></lightning-textarea>
+    <lightning-textarea label="Help Text" value={helpText} onchange={handleHelpTextChange} class="slds-m-bottom_small"></lightning-textarea>
+
+    <lightning-input
+      lwc:if={showRequired}
+      type="checkbox"
+      label="Required"
+      checked={isRequired}
+      onchange={handleRequiredChange}
+      class="slds-m-bottom_x-small"
+    ></lightning-input>
+    <template lwc:if={showUniqueExternalId}>
+      <lightning-input type="checkbox" label="Unique" checked={isUnique} onchange={handleUniqueChange} class="slds-m-bottom_x-small"></lightning-input>
+      <lightning-input type="checkbox" label="External ID" checked={isExternalId} onchange={handleExternalIdChange}></lightning-input>
+    </template>
+  </lightning-modal-body>
+  <lightning-modal-footer>
+    <lightning-button label="Cancel" onclick={handleCancel} class="slds-m-right_x-small"></lightning-button>
+    <lightning-button variant="brand" label="Save" onclick={handleSave}></lightning-button>
+  </lightning-modal-footer>
+</template>

@@ -142,3 +142,20 @@ export function buildResultsCsv(columns, resultRows) {
   });
   return `${lines.join('\r\n')}\r\n`;
 }
+
+/**
+ * Builds a plain CSV export of the grid's current rows as-is (whatever is currently in memory,
+ * including unsaved edits) - one row per record, same field columns as the grid, no Status/Detail
+ * columns (unlike buildResultsCsv, this isn't reporting a save attempt).
+ * @param {Array} columns - The grid's column models, [{ apiName, ... }].
+ * @param {Array} rows - The grid's current rows, [{ values: {apiName: value} }].
+ */
+export function buildRowsCsv(columns, rows) {
+  const headers = columns.map((column) => column.apiName);
+  const lines = [headers.map(escapeCsvField).join(';')];
+  rows.forEach((row) => {
+    const cells = columns.map((column) => escapeCsvField(String(row.values[column.apiName] ?? '')));
+    lines.push(cells.join(';'));
+  });
+  return `${lines.join('\r\n')}\r\n`;
+}

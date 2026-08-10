@@ -6,8 +6,7 @@ API GraphQL wire adapter (`lightning/graphql`) instead of Apex wherever possible
 Each topic — a feature or component family — lives in its own top-level folder and is
 independently deployable: no topic depends on another topic's folder. That's a deliberate
 constraint, not an accident: `sf project deploy start --source-dir <topic>` should always work on
-its own, without pulling in unrelated components. `salesforceInspectorNative` is the one documented
-exception — see its row in the topic table below.
+its own, without pulling in unrelated components.
 
 ## Repo structure
 
@@ -25,7 +24,7 @@ force-app/                  → main/default/lwc/...   (everything not yet split
 | Topic | What it is |
 |---|---|
 | [`multiRecordEntry`](multiRecordEntry/README.md) | Bulk create/upsert any object's records in a spreadsheet-style modal, with CSV import/export, match-key upserts, and a layout/Record Type picker. |
-| [`salesforceInspectorNative`](salesforceInspectorNative/README.md) | Standalone Lightning app (App Launcher entry point), meant to grow into a home for more than one tool over time. Its one tab today, Create Records, is an object picker in front of `multiRecordEntry`'s modal. **Depends on `multiRecordEntry` also being deployed** — the one exception to "no topic depends on another topic's folder," documented in its own README along with why. |
+| [`salesforceInspectorNative`](salesforceInspectorNative/README.md) | Standalone Lightning app (App Launcher entry point), meant to grow into a home for more than one tool over time. Today it has three tabs — Create Records (a row of object/layout selectors with a forked, inline, not modal, copy of `multiRecordEntry`'s record-entry grid rendered below them, see below), Query Records, and Field Creator — independently deployable like every other topic. |
 
 `force-app` is the original, not-yet-split package directory. It currently holds:
 
@@ -60,6 +59,21 @@ actually used over carrying along an entire unrelated API surface.
 
 If a future topic needs one of these same helpers, copy (and trim) it in rather than introducing a
 shared dependency between topic folders — that's the convention this repo is built around.
+
+The duplication doesn't have to stay small, either: `salesforceInspectorNative`'s Create Records
+tab needs the *entire* `multiRecordEntry` record-entry engine plus its six dependencies — CSV
+utils, the query bridge, column/mutation utils, shared utils, the mapping dialog, and the
+form-field renderer — so all seven bundles are vendored into `salesforceInspectorNative`, each
+under its own `inspectorNative`-prefixed name (e.g. `inspectorNativeCsvUtils`,
+`inspectorNativeSharedUtils`) rather than reusing `multiRecordEntry`'s bundle names, so none of
+them can ever collide if both topics are ever deployed to the same org together. Six of them are
+full, logically-identical duplicates of their `multiRecordEntry` originals kept in sync by hand —
+unlike a deliberately-trimmed vendored copy (like `graphqlMultiRecordEntrySharedUtils` above). The
+seventh — the entry component itself, `inspectorNativeRecordEntry` — was forked, not just copied:
+`salesforceInspectorNative` needed it to render inline instead of as a popup modal, so it's a plain
+`LightningElement` there rather than a `LightningModal`. See
+[`salesforceInspectorNative/README.md`](salesforceInspectorNative/README.md) for the full
+naming/forking breakdown.
 
 ## Adding a new topic
 

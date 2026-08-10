@@ -1,0 +1,41 @@
+<template>
+  <div class="slds-p-around_medium page-container">
+    <div class="header-row">
+      <lightning-button label="Refresh" icon-name="utility:refresh" onclick={handleRefresh} disabled={isLoading}></lightning-button>
+    </div>
+
+    <lightning-spinner lwc:if={isLoading} alternative-text="Loading license usage" size="medium"></lightning-spinner>
+
+    <div lwc:if={errorText} class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-top_medium" role="alert">
+      <span>{errorText}</span>
+    </div>
+
+    <p lwc:if={hasNoLicenses} class="slds-text-color_weak slds-p-around_small">No provisioned licenses found.</p>
+
+    <template lwc:if={hasUserLicenses}>
+      <h3 class="slds-text-heading_small slds-m-top_medium slds-m-bottom_small">User Licenses</h3>
+      <ul class="license-list">
+        <template for:each={userLicenseRows} for:item="row">
+          <li key={row.label} class="license-row">
+            <span class="license-label" title={row.label}>{row.label}</span>
+            <lightning-progress-bar value={row.percent} size="large" class="license-bar"></lightning-progress-bar>
+            <span class="license-count">{row.usedOfTotal}</span>
+          </li>
+        </template>
+      </ul>
+    </template>
+
+    <template lwc:if={hasPermissionSetLicenses}>
+      <h3 class="slds-text-heading_small slds-m-top_medium slds-m-bottom_small">Permission Set Licenses</h3>
+      <ul class="license-list">
+        <template for:each={permissionSetLicenseRows} for:item="row">
+          <li key={row.label} class="license-row">
+            <span class="license-label" title={row.label}>{row.label}</span>
+            <lightning-progress-bar value={row.percent} size="large" class="license-bar"></lightning-progress-bar>
+            <span class="license-count">{row.usedOfTotal}</span>
+          </li>
+        </template>
+      </ul>
+    </template>
+  </div>
+</template>

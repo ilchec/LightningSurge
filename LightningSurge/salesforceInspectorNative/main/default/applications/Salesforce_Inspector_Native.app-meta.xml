@@ -7,6 +7,6 @@
     <formFactors>Large</formFactors>
     <label>Salesforce Inspector Native</label>
     <navType>Standard</navType>
-    <tab>Salesforce_Inspector_Native</tab>
+    <tabs>Salesforce_Inspector_Native</tabs>
     <uiType>Lightning</uiType>
 </CustomApplication>

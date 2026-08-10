@@ -1,0 +1,35 @@
+.page-container {
+  max-width: 100%;
+}
+
+.header-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.limit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: 1.5rem;
+}
+
+.limit-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.25rem;
+}
+
+.limit-name {
+  font-size: 0.75rem;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.limit-count {
+  font-size: 0.75rem;
+  color: #706e6b;
+}

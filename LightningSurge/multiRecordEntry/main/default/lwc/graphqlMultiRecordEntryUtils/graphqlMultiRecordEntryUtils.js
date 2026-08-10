@@ -293,23 +293,30 @@ export function extractRecordTypes(result) {
 
 /**
  * Pure decision logic for what graphqlMultiRecordEntry should do once the active Record Types are
- * known: use a directly-given recordTypeId, switch to All Fields / Required Only mode, resolve a
- * layoutDeveloperName to a matching Record Type, or fall back to showing the layout picker.
- * Extracted from the component so this priority order is independently testable without a wire
- * adapter or DOM. recordTypeId takes priority over showAllFields/requiredFieldsOnly/
- * layoutDeveloperName; those three are mutually exclusive and checked in that order.
+ * known: use a directly-given recordTypeId, switch to All Fields / Required Only / (explicitly)
+ * Default Layout mode, resolve a layoutDeveloperName to a matching Record Type, or fall back to
+ * showing the layout picker. Extracted from the component so this priority order is independently
+ * testable without a wire adapter or DOM. recordTypeId takes priority over
+ * showAllFields/requiredFieldsOnly/useDefaultLayout/layoutDeveloperName; those four are mutually
+ * exclusive and checked in that order.
  * @returns {{mode: 'direct'|'allFields'|'requiredOnly'|'picker', recordTypeId: string|null}}
  */
 export function resolveRecordTypeSelection({
   recordTypeId,
   showAllFields,
   requiredFieldsOnly,
+  useDefaultLayout,
   layoutDeveloperName,
   availableRecordTypes
 }) {
   if (recordTypeId) return { mode: 'direct', recordTypeId };
   if (showAllFields) return { mode: 'allFields', recordTypeId: null };
   if (requiredFieldsOnly) return { mode: 'requiredOnly', recordTypeId: null };
+  // Unlike the other three explicit flags, "use the Default Layout" has no ID/value of its own to
+  // key off of - recordTypeId: null already means "Default Layout" once resolved, so this flag
+  // exists purely to let a caller skip the picker and land on that resolution directly, the same
+  // way clicking "Default Layout" in the picker itself does.
+  if (useDefaultLayout) return { mode: 'direct', recordTypeId: null };
   const matched = layoutDeveloperName
     ? (availableRecordTypes || []).find((rt) => rt.developerName === layoutDeveloperName)
     : null;

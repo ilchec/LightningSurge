@@ -1,0 +1,9 @@
+.checkbox-field-label {
+  margin-bottom: 0.25rem;
+}
+
+.checkbox-field-input {
+  display: flex;
+  align-items: center;
+  min-height: 2rem;
+}

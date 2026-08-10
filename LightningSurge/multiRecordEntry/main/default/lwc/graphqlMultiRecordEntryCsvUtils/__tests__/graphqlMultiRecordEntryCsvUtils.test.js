@@ -2,6 +2,7 @@ import {
   buildAutoMapping,
   buildCsvTemplate,
   buildResultsCsv,
+  buildRowsCsv,
   coerceCsvValue,
   escapeCsvField,
   mapCsvRowToValues,
@@ -197,5 +198,27 @@ describe('buildResultsCsv', () => {
   it('renders a missing value as an empty cell rather than "null"/"undefined"', () => {
     const csv = buildResultsCsv([{ apiName: 'Name' }], [{ values: {}, status: 'Failed', detail: 'Some error' }]);
     expect(csv.trim().split('\r\n')[1]).toBe(';Failed;Some error');
+  });
+});
+
+describe('buildRowsCsv', () => {
+  it('builds a header row of just the column apiNames, no Status/Detail', () => {
+    const csv = buildRowsCsv([{ apiName: 'Name' }, { apiName: 'Email' }], []);
+    expect(csv.split('\r\n')[0]).toBe('Name;Email');
+  });
+
+  it('builds one data row per given row, using its current values', () => {
+    const csv = buildRowsCsv(
+      [{ apiName: 'Name' }, { apiName: 'Email' }],
+      [{ values: { Name: 'Acme', Email: 'a@b.com' } }, { values: { Name: 'Globex', Email: 'b@c.com' } }]
+    );
+    const lines = csv.trim().split('\r\n');
+    expect(lines[1]).toBe('Acme;a@b.com');
+    expect(lines[2]).toBe('Globex;b@c.com');
+  });
+
+  it('escapes values that contain the delimiter and renders a missing value as an empty cell', () => {
+    const csv = buildRowsCsv([{ apiName: 'Name' }, { apiName: 'Email' }], [{ values: { Name: 'Acme;Inc' } }]);
+    expect(csv.trim().split('\r\n')[1]).toBe('"Acme;Inc";');
   });
 });

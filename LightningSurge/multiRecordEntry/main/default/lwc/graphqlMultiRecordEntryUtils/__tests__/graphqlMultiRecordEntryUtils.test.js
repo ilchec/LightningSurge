@@ -96,6 +96,27 @@ describe('resolveRecordTypeSelection', () => {
       recordTypeId: null
     });
   });
+
+  it('resolves directly to the Default Layout when useDefaultLayout is set, skipping the picker', () => {
+    const selection = resolveRecordTypeSelection({ useDefaultLayout: true, availableRecordTypes });
+    expect(selection).toEqual({ mode: 'direct', recordTypeId: null });
+  });
+
+  it('useDefaultLayout takes priority over layoutDeveloperName', () => {
+    const selection = resolveRecordTypeSelection({
+      useDefaultLayout: true,
+      layoutDeveloperName: 'Partner_Lead',
+      availableRecordTypes
+    });
+    expect(selection).toEqual({ mode: 'direct', recordTypeId: null });
+  });
+
+  it('recordTypeId/showAllFields/requiredFieldsOnly still take priority over useDefaultLayout', () => {
+    expect(resolveRecordTypeSelection({ recordTypeId: '012C', useDefaultLayout: true, availableRecordTypes }).mode).toBe('direct');
+    expect(resolveRecordTypeSelection({ recordTypeId: '012C', useDefaultLayout: true, availableRecordTypes }).recordTypeId).toBe('012C');
+    expect(resolveRecordTypeSelection({ showAllFields: true, useDefaultLayout: true, availableRecordTypes }).mode).toBe('allFields');
+    expect(resolveRecordTypeSelection({ requiredFieldsOnly: true, useDefaultLayout: true, availableRecordTypes }).mode).toBe('requiredOnly');
+  });
 });
 
 describe('buildRequiredFieldsColumnGroups', () => {

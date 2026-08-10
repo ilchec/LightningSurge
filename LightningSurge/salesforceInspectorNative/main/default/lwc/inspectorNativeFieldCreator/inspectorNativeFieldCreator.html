@@ -1,0 +1,162 @@
+<template>
+  <div class="slds-p-around_medium page-container">
+    <div class="selector-row">
+      <div class="selector-item">
+        <lightning-combobox
+          label="Object"
+          placeholder="Select an object..."
+          options={objectOptions}
+          value={selectedObjectApiName}
+          disabled={isLoadingObjects}
+          onchange={handleObjectSelect}
+        ></lightning-combobox>
+      </div>
+    </div>
+
+    <div lwc:if={objectListErrorText} class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-top_medium" role="alert">
+      <span>{objectListErrorText}</span>
+    </div>
+
+    <lightning-spinner lwc:if={isLoadingObjects} alternative-text="Loading objects" size="medium"></lightning-spinner>
+
+    <template lwc:if={selectedObjectApiName}>
+      <template lwc:if={hasDeployResults}>
+        <div class="slds-m-top_medium">
+          <h3 class="slds-text-heading_small slds-m-bottom_small">Deploy results</h3>
+          <ul class="deploy-results-list">
+            <template for:each={deployResults} for:item="result">
+              <li key={result.apiName}>
+                <span lwc:if={result.success} class="slds-text-color_success">
+                  ✓ Created {result.apiName}<span lwc:if={result.permissionWarning} class="slds-text-color_error"> - {result.permissionWarning}</span>
+                </span>
+                <span lwc:else class="slds-text-color_error">✗ {result.apiName} - {result.message}</span>
+              </li>
+            </template>
+          </ul>
+          <lightning-button label="Add More Fields" onclick={handleAddMoreFields} class="slds-m-top_medium"></lightning-button>
+        </div>
+      </template>
+
+      <template lwc:else>
+        <div class="slds-m-top_medium slds-m-bottom_medium">
+          <table class="slds-table slds-table_bordered slds-table_cell-buffer field-table">
+            <thead>
+              <tr class="slds-line-height_reset">
+                <th class="row-actions-col" scope="col"><span class="slds-assistive-text">Row Actions</span></th>
+                <th scope="col">Label</th>
+                <th scope="col">API Name (__c)</th>
+                <th scope="col">Type</th>
+                <th scope="col">Options</th>
+                <th scope="col">Permissions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template for:each={fieldRows} for:item="row">
+                <tr key={row.key}>
+                  <td class="row-actions-col">
+                    <lightning-button-icon
+                      icon-name="utility:copy"
+                      alternative-text="Clone field"
+                      variant="border-filled"
+                      data-row-key={row.key}
+                      onclick={handleCloneRow}
+                      disabled={isDeploying}
+                    ></lightning-button-icon>
+                    <lightning-button-icon
+                      lwc:if={hasMultipleRows}
+                      icon-name="utility:delete"
+                      alternative-text="Remove field"
+                      variant="border-filled"
+                      data-row-key={row.key}
+                      onclick={handleRemoveRow}
+                      disabled={isDeploying}
+                    ></lightning-button-icon>
+                  </td>
+                  <td>
+                    <lightning-input
+                      variant="label-hidden"
+                      label="Label"
+                      placeholder="Field label..."
+                      value={row.label}
+                      data-row-key={row.key}
+                      onchange={handleLabelChange}
+                      disabled={isDeploying}
+                    ></lightning-input>
+                  </td>
+                  <td>
+                    <lightning-input
+                      variant="label-hidden"
+                      label="API Name"
+                      placeholder="Field name..."
+                      value={row.apiName}
+                      data-row-key={row.key}
+                      onchange={handleApiNameChange}
+                      disabled={isDeploying}
+                    ></lightning-input>
+                  </td>
+                  <td>
+                    <lightning-combobox
+                      variant="label-hidden"
+                      label="Type"
+                      options={fieldTypeOptions}
+                      value={row.fieldType}
+                      data-row-key={row.key}
+                      onchange={handleFieldTypeChange}
+                      disabled={isDeploying}
+                    ></lightning-combobox>
+                  </td>
+                  <td>
+                    <lightning-button
+                      label="Options"
+                      variant="base"
+                      data-row-key={row.key}
+                      onclick={handleOpenOptions}
+                      disabled={isDeploying}
+                    ></lightning-button>
+                  </td>
+                  <td>
+                    <lightning-button
+                      label="Permissions"
+                      variant="base"
+                      data-row-key={row.key}
+                      onclick={handleOpenPermissions}
+                      disabled={isDeploying}
+                    ></lightning-button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+
+        <lightning-button
+          label="Add Row"
+          icon-name="utility:add"
+          onclick={handleAddRow}
+          disabled={isDeploying}
+          class="slds-m-top_large"
+        ></lightning-button>
+
+        <ul lwc:if={validationErrors.length} class="slds-text-color_error slds-text-body_small validation-summary">
+          <template for:each={validationErrors} for:item="err">
+            <li key={err.key}>{err.message}</li>
+          </template>
+        </ul>
+
+        <div lwc:if={deployErrorText} class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-top_medium" role="alert">
+          <span>{deployErrorText}</span>
+        </div>
+
+        <div class="slds-m-top_medium deploy-button-row">
+          <lightning-button
+            variant="brand"
+            label="Deploy Fields"
+            onclick={handleDeployClick}
+            disabled={isDeployDisabled}
+          ></lightning-button>
+          <lightning-spinner lwc:if={isDeploying} alternative-text="Deploying" size="small" class="deploy-spinner"></lightning-spinner>
+        </div>
+      </template>
+    </template>
+  </div>
+</template>

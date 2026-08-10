@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>67.0</apiVersion>
+    <isExposed>false</isExposed>
+    <description>Wire-to-Promise bridge for the reactive lightning/graphql query adapter, used by inspectorNativeRecordEntry. Not an LWC component - a plain importable class, kept as its own bundle so it can be unit tested in isolation.</description>
+</LightningComponentBundle>

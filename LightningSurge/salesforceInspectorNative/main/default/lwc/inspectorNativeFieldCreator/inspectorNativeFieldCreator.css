@@ -1,0 +1,51 @@
+.page-container {
+  max-width: 100%;
+}
+
+.selector-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.selector-item {
+  width: 20rem;
+  max-width: 100%;
+}
+
+.field-table {
+  min-width: 50rem;
+}
+
+.field-table th,
+.field-table td {
+  vertical-align: middle;
+}
+
+.row-actions-col {
+  width: 5rem;
+  white-space: nowrap;
+}
+
+.deploy-results-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.validation-summary {
+  list-style: disc;
+  margin: 0.75rem 0 0 1.25rem;
+}
+
+.deploy-button-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.deploy-spinner {
+  position: relative;
+  width: 1.5rem;
+  height: 1.5rem;
+}

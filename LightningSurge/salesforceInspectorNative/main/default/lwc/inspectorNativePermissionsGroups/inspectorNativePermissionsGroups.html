@@ -1,0 +1,158 @@
+<template>
+  <div class="slds-p-around_medium page-container">
+    <lightning-spinner lwc:if={isLoadingItems} alternative-text="Loading permission sets and groups" size="medium"></lightning-spinner>
+
+    <div lwc:if={itemListErrorText} class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error" role="alert">
+      <span>{itemListErrorText}</span>
+    </div>
+
+    <template lwc:if={isSelectItemsStep}>
+      <div class="selector-row">
+        <div class="selector-item">
+          <lightning-input
+            type="search"
+            label="Search"
+            variant="label-hidden"
+            placeholder="Search permission sets, groups..."
+            value={itemSearchText}
+            onchange={handleItemSearchChange}
+          ></lightning-input>
+        </div>
+        <div class="selector-item">
+          <lightning-combobox label="Type" variant="label-hidden" options={typeFilterOptions} value={itemTypeFilter} onchange={handleItemTypeFilterChange}></lightning-combobox>
+        </div>
+      </div>
+
+      <p lwc:if={hasNoItemResults} class="slds-text-color_weak slds-p-around_small">No matching permission sets, groups, or public groups found.</p>
+
+      <div class="slds-m-top_medium item-table-wrapper" lwc:if={itemRows.length}>
+        <table class="slds-table slds-table_bordered slds-table_cell-buffer item-table">
+          <thead>
+            <tr class="slds-line-height_reset">
+              <th class="select-col" scope="col"><span class="slds-assistive-text">Select</span></th>
+              <th scope="col">Name</th>
+              <th scope="col">Type</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template for:each={itemRows} for:item="row">
+              <tr key={row.id}>
+                <td class="select-col">
+                  <lightning-input
+                    type="checkbox"
+                    variant="label-hidden"
+                    label={row.label}
+                    checked={row.selected}
+                    data-id={row.id}
+                    onchange={handleItemToggle}
+                  ></lightning-input>
+                </td>
+                <td>{row.label}</td>
+                <td>{row.typeLabel}</td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="slds-m-top_large deploy-button-row">
+        <span class="slds-text-color_weak">{selectedItemCount} selected</span>
+        <lightning-button variant="brand" label="Next: Select Users" onclick={handleNextStep} disabled={isNextDisabled}></lightning-button>
+      </div>
+    </template>
+
+    <template lwc:if={isSelectUsersStep}>
+      <h3 class="slds-text-heading_small slds-m-bottom_small">Selected permissions/groups ({selectedItemCount})</h3>
+      <ul class="selected-items-list slds-m-bottom_medium">
+        <template for:each={selectedItems} for:item="item">
+          <li key={item.id}>{item.label} <span class="slds-text-color_weak">({item.typeLabel})</span></li>
+        </template>
+      </ul>
+
+      <lightning-input
+        type="search"
+        label="Search users"
+        placeholder="Search by name, username, or email..."
+        value={userSearchText}
+        onchange={handleUserSearchChange}
+      ></lightning-input>
+
+      <lightning-spinner lwc:if={isSearchingUsers} alternative-text="Searching users" size="small"></lightning-spinner>
+
+      <div lwc:if={userSearchErrorText} class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-top_small" role="alert">
+        <span>{userSearchErrorText}</span>
+      </div>
+
+      <p lwc:if={hasNoUserSearchResults} class="slds-text-color_weak slds-p-around_small">No matching active users found.</p>
+
+      <div class="slds-m-top_small item-table-wrapper" lwc:if={userSearchRows.length}>
+        <table class="slds-table slds-table_bordered slds-table_cell-buffer item-table">
+          <thead>
+            <tr class="slds-line-height_reset">
+              <th class="select-col" scope="col"><span class="slds-assistive-text">Select</span></th>
+              <th scope="col">Name</th>
+              <th scope="col">Username</th>
+              <th scope="col">Email</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template for:each={userSearchRows} for:item="row">
+              <tr key={row.id}>
+                <td class="select-col">
+                  <lightning-input
+                    type="checkbox"
+                    variant="label-hidden"
+                    label={row.name}
+                    checked={row.selected}
+                    data-id={row.id}
+                    onchange={handleUserToggle}
+                  ></lightning-input>
+                </td>
+                <td>{row.name}</td>
+                <td>{row.username}</td>
+                <td>{row.email}</td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="slds-m-top_medium" lwc:if={hasSelectedUsers}>
+        <h3 class="slds-text-heading_small slds-m-bottom_small">Selected users ({selectedUserCount})</h3>
+        <lightning-pill-container items={selectedUserPills} onitemremove={handleRemoveUserPill}></lightning-pill-container>
+      </div>
+
+      <div class="slds-m-top_medium selector-item" lwc:if={needsExpirationDate}>
+        <lightning-input
+          type="date"
+          label="Expiration Date (optional, applies to Permission Sets/Groups only)"
+          value={expirationDate}
+          onchange={handleExpirationDateChange}
+        ></lightning-input>
+      </div>
+
+      <div lwc:if={assignErrorText} class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-top_medium" role="alert">
+        <span>{assignErrorText}</span>
+      </div>
+
+      <div class="slds-m-top_large deploy-button-row">
+        <lightning-button label="Back" onclick={handleBackToItems} disabled={isAssigning}></lightning-button>
+        <lightning-button variant="brand" label="Assign" onclick={handleAssignClick} disabled={isAssignDisabled}></lightning-button>
+        <lightning-spinner lwc:if={isAssigning} alternative-text="Assigning" size="small" class="deploy-spinner"></lightning-spinner>
+      </div>
+    </template>
+
+    <template lwc:if={isResultsStep}>
+      <h3 class="slds-text-heading_small slds-m-bottom_small">Assignment results</h3>
+      <ul class="deploy-results-list">
+        <template for:each={resultRows} for:item="row">
+          <li key={row.key}>
+            <span lwc:if={row.success} class="slds-text-color_success">✓ {row.userLabel} - {row.targetLabel} ({row.typeLabel}): {row.message}</span>
+            <span lwc:else class="slds-text-color_error">✗ {row.userLabel} - {row.targetLabel} ({row.typeLabel}): {row.message}</span>
+          </li>
+        </template>
+      </ul>
+      <lightning-button label="Assign More" onclick={handleAssignMore} class="slds-m-top_medium"></lightning-button>
+    </template>
+  </div>
+</template>

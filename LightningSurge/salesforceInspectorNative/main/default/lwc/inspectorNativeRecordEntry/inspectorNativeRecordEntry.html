@@ -1,0 +1,412 @@
+<template>
+  <h2 class="slds-text-heading_medium slds-m-bottom_medium">{modalLabel}</h2>
+  <div class="entry-body">
+    <div class="version-tag">{componentVersion}</div>
+    <lightning-spinner lwc:if={isLoading} alternative-text="Loading form" size="medium"></lightning-spinner>
+    <template lwc:else>
+      <div
+        lwc:if={hasError}
+        class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error"
+        role="alert"
+      >
+        <span>{errorMessage}</span>
+      </div>
+
+      <a data-id="download-link" class="slds-assistive-text"></a>
+
+      <template lwc:if={isRecordTypePickerState}>
+        <div class="layout-picker-container">
+          <h3 class="slds-text-heading_small slds-m-bottom_small">Choose a Layout</h3>
+          <p class="slds-text-body_regular slds-text-color_weak slds-text-align_center slds-m-bottom_medium">
+            Pick which fields to show: the Default Layout, a specific Record Type's layout, or every field you
+            have access to regardless of layout.
+          </p>
+          <div class="layout-picker-dropdown">
+            <lightning-combobox
+              label="Layout"
+              placeholder="Select a layout..."
+              options={recordTypeOptions}
+              onchange={handleRecordTypeSelect}
+            ></lightning-combobox>
+          </div>
+        </div>
+      </template>
+
+      <template lwc:elseif={isMappingState}>
+        <p class="slds-text-body_regular slds-m-bottom_medium">
+          Choose a column for each Salesforce field (or drag a column onto it). Fields with a matching column name
+          are mapped automatically. Check "Match key" next to a field to update existing records instead of always
+          creating new ones.
+        </p>
+        <div lwc:if={csvPreviewRows.length} class="preview-table-wrapper">
+          <p class="slds-text-body_small slds-text-color_weak slds-p-bottom_x-small">Preview of the imported data</p>
+          <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+            <thead>
+              <tr class="slds-line-height_reset">
+                <template for:each={csvHeadersForMapping} for:item="header">
+                  <th key={header} scope="col">
+                    <div class="slds-truncate" title={header}>{header}</div>
+                  </th>
+                </template>
+              </tr>
+            </thead>
+            <tbody>
+              <template for:each={csvPreviewRows} for:item="row">
+                <tr key={row.key}>
+                  <template for:each={row.cells} for:item="cell">
+                    <td key={cell.key}>
+                      <div class="slds-truncate" title={cell.value}>{cell.value}</div>
+                    </td>
+                  </template>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+        <c-inspector-native-mapping
+          columns={flatColumns}
+          csv-headers={csvHeadersForMapping}
+          match-field-api-names={matchFieldApiNames}
+          onmatchfieldtoggle={handleMappingMatchFieldToggle}
+        ></c-inspector-native-mapping>
+      </template>
+
+      <template lwc:elseif={isPasteState}>
+        <div class="paste-container">
+          <p class="slds-text-body_regular slds-m-bottom_medium">
+            Copy a range of cells from Excel or Google Sheets (including the header row) and paste it below.
+          </p>
+          <textarea
+            data-id="paste-textarea"
+            class="slds-textarea paste-textarea"
+            placeholder="Paste here..."
+            rows="12"
+          ></textarea>
+        </div>
+      </template>
+
+      <template lwc:elseif={isMatchFieldsState}>
+        <p class="slds-text-body_regular slds-m-bottom_medium">
+          Pick the field(s) that identify an existing record. On save, rows whose values match an existing record
+          are updated instead of creating a duplicate. Leave empty to always create new records.
+        </p>
+        <lightning-dual-listbox
+          label="Match records by"
+          source-label="Available fields"
+          selected-label="Match key fields"
+          options={matchFieldOptions}
+          value={matchFieldApiNames}
+          onchange={handleMatchFieldChange}
+        ></lightning-dual-listbox>
+      </template>
+
+      <template lwc:elseif={isColumnPickerState}>
+        <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-bottom_medium">
+          <p class="slds-text-body_regular">
+            Choose which fields to show in the grid. Hidden fields aren't shown or editable, but existing values
+            (like defaults) are unaffected.
+          </p>
+          <lightning-button label="Show All" onclick={handleShowAllColumns}></lightning-button>
+        </div>
+        <lightning-dual-listbox
+          label="Visible fields"
+          source-label="Hidden"
+          selected-label="Visible"
+          options={columnVisibilityOptions}
+          value={visibleColumnApiNames}
+          onchange={handleColumnVisibilityChange}
+        ></lightning-dual-listbox>
+      </template>
+
+      <template lwc:elseif={isSaveOptionsState}>
+        <div class="save-options-container">
+          <p class="slds-text-body_regular slds-text-align_center slds-m-bottom_large">
+            Saving {touchedRowCount} row(s). Choose how to handle a row that fails to save.
+          </p>
+          <div class="save-mode-options">
+            <template for:each={saveModeOptions} for:item="option">
+              <div
+                key={option.value}
+                class={option.cardClass}
+                data-value={option.value}
+                onclick={handleSaveModeCardClick}
+              >
+                <lightning-icon
+                  icon-name={option.iconName}
+                  size="medium"
+                  class="save-mode-icon"
+                ></lightning-icon>
+                <div class="save-mode-title">{option.label}</div>
+                <div class="save-mode-description">{option.description}</div>
+              </div>
+            </template>
+          </div>
+          <p lwc:if={isLoadingMatchPreview} class="slds-text-body_small slds-text-color_weak slds-m-top_medium">
+            Checking for matching records...
+          </p>
+          <p lwc:if={matchPreview} class="slds-text-body_small slds-m-top_medium">
+            Based on your match fields: <strong>{matchPreview.willCreate}</strong> record(s) will be created,
+            <strong>{matchPreview.willUpdate}</strong> will be updated.
+          </p>
+        </div>
+      </template>
+
+      <template lwc:elseif={isResultsState}>
+        <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-bottom_small">
+          <h3 class="slds-text-heading_small">Save results</h3>
+          <lightning-button
+            label="Export Results CSV"
+            icon-name="utility:download"
+            onclick={handleExportResults}
+          ></lightning-button>
+        </div>
+        <p lwc:if={allOrNothingIncomplete} class="slds-text-color_error slds-m-bottom_small">
+          All or nothing was requested, but {createdBeforeStopCount} record(s) were already saved before a failure
+          stopped the rest — each row is saved independently, so those were not rolled back.
+        </p>
+        <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+          <thead>
+            <tr class="slds-line-height_reset">
+              <th scope="col">Row</th>
+              <th scope="col">Operation</th>
+              <th scope="col">Status</th>
+              <th scope="col">Detail</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template for:each={saveResults} for:item="result">
+              <tr key={result.clientId}>
+                <td>{result.rowNumber}</td>
+                <td>{result.operation}</td>
+                <td class={result.statusClass}>{result.statusLabel}</td>
+                <td>
+                  <template lwc:if={result.success}>
+                    <button
+                      type="button"
+                      class="slds-button detail-link"
+                      data-record-id={result.detail}
+                      onclick={handleViewRecord}
+                    >{result.detail}</button>
+                  </template>
+                  <template lwc:else>{result.detail}</template>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </template>
+
+      <template lwc:else>
+        <div class="toolbar-menu">
+          <template lwc:if={queryMode}>
+            <lightning-button
+              label="Export CSV"
+              icon-name="utility:download"
+              onclick={handleExportCurrentRows}
+            ></lightning-button>
+            <lightning-button
+              label={editModeToggleLabel}
+              icon-name="utility:edit"
+              onclick={handleToggleEditMode}
+            ></lightning-button>
+          </template>
+          <template lwc:else>
+            <lightning-button
+              label="Match Fields"
+              icon-name="utility:merge"
+              onclick={handleOpenMatchFields}
+            ></lightning-button>
+            <lightning-button
+              label="Manage Columns"
+              icon-name="utility:filterList"
+              onclick={handleOpenColumnPicker}
+            ></lightning-button>
+            <lightning-button
+              label="Download CSV Template"
+              icon-name="utility:download"
+              onclick={handleDownloadTemplate}
+            ></lightning-button>
+            <lightning-button
+              label="Import CSV"
+              icon-name="utility:upload"
+              onclick={handleImportCsvClick}
+            ></lightning-button>
+            <lightning-button
+              label="Paste from Excel"
+              icon-name="utility:copy_to_clipboard"
+              onclick={handleOpenPaste}
+            ></lightning-button>
+            <input
+              type="file"
+              data-id="csv-file-input"
+              accept=".csv"
+              class="slds-assistive-text"
+              onchange={handleCsvFileChange}
+            />
+          </template>
+          <lightning-button-group class="view-mode-toggle">
+            <lightning-button
+              label="Field View"
+              variant={fieldViewButtonVariant}
+              data-value="field"
+              onclick={handleViewModeChange}
+            ></lightning-button>
+            <lightning-button
+              label="Table View"
+              variant={tableViewButtonVariant}
+              data-value="table"
+              onclick={handleViewModeChange}
+            ></lightning-button>
+          </lightning-button-group>
+        </div>
+        <div lwc:if={hasMatchFields} class="slds-text-body_small slds-text-color_weak matching-by-line">
+          Matching by: {matchFieldSummary}
+        </div>
+        <div lwc:if={hasHiddenColumns} class="slds-text-body_small slds-text-color_weak matching-by-line">
+          Some fields are hidden.
+          <button type="button" class="slds-button detail-link" onclick={handleOpenColumnPicker}>Manage Columns</button>
+        </div>
+
+        <div class="grid-scroll-container">
+          <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+            <thead>
+              <tr class="slds-line-height_reset">
+                <th class="row-action-col" scope="col"><span class="slds-assistive-text">Row Actions</span></th>
+                <template for:each={columnGroups} for:item="group">
+                  <th key={group.id} colspan={group.columnCount} scope="colgroup" class="slds-text-align_center">
+                    <div class="slds-truncate" title={group.heading}>{group.heading}</div>
+                  </th>
+                </template>
+              </tr>
+              <tr lwc:if={isTableView} class="slds-line-height_reset">
+                <th class="row-action-col" scope="col"></th>
+                <template for:each={visibleFlatColumns} for:item="column">
+                  <th key={column.apiName} scope="col" class="raw-cell-col">
+                    <div class="slds-truncate" title={column.label}>{column.label}</div>
+                  </th>
+                </template>
+              </tr>
+            </thead>
+            <tbody>
+              <template for:each={rows} for:item="row">
+                <tr key={row.clientId}>
+                  <td>
+                    <lightning-button-icon
+                      icon-name="utility:delete"
+                      alternative-text="Remove row"
+                      variant="border-filled"
+                      data-row-id={row.clientId}
+                      onclick={handleRemoveRow}
+                      disabled={isRemoveRowDisabled}
+                    ></lightning-button-icon>
+                  </td>
+                  <template for:each={row.cells} for:item="cell">
+                    <td key={cell.apiName} class={cellColumnClass}>
+                      <c-inspector-native-form-field
+                        lwc:if={isFieldView}
+                        field={cell}
+                        data-row-id={row.clientId}
+                        onfieldchange={handleFieldChange}
+                      ></c-inspector-native-form-field>
+                      <input
+                        lwc:else
+                        type="text"
+                        class="raw-cell-input"
+                        value={cell.rawValue}
+                        data-row-id={row.clientId}
+                        data-api-name={cell.apiName}
+                        onchange={handleRawCellChange}
+                        disabled={cell.notEditable}
+                      />
+                    </td>
+                  </template>
+                </tr>
+                <tr lwc:if={row.errorMessage} key={row.errorRowKey}>
+                  <td colspan={columnCountWithAction} class="slds-text-color_error slds-text-body_small">
+                    {row.errorMessage}
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+
+        <div lwc:if={hasNoRows} class="slds-text-align_center slds-text-color_weak slds-p-around_medium">
+          <template lwc:if={queryMode}>No rows left - run a new query to load more.</template>
+          <template lwc:else>No rows yet. Click "Add Row", upload a CSV file, or paste data from Excel to get started.</template>
+        </div>
+
+        <div lwc:if={isNotQueryMode} class="slds-m-top_small">
+          <lightning-button
+            label="Add Row"
+            icon-name="utility:add"
+            onclick={handleAddRow}
+            disabled={isAddRowDisabled}
+          ></lightning-button>
+        </div>
+
+        <ul lwc:if={validationErrors.length} class="slds-text-color_error slds-text-body_small validation-summary">
+          <template for:each={validationErrors} for:item="err">
+            <li key={err.key}>{err.message}</li>
+          </template>
+        </ul>
+      </template>
+    </template>
+  </div>
+  <div class="entry-footer">
+    <template lwc:if={isRecordTypePickerState}>
+      <lightning-button label="Cancel" onclick={handleCancel}></lightning-button>
+    </template>
+    <template lwc:elseif={isMappingState}>
+      <lightning-button label="Back" onclick={handleMappingBack} class="slds-m-right_x-small"></lightning-button>
+      <lightning-button variant="brand" label="Apply Mapping" onclick={handleApplyMapping}></lightning-button>
+    </template>
+    <template lwc:elseif={isPasteState}>
+      <lightning-button label="Back" onclick={handlePasteBack} class="slds-m-right_x-small"></lightning-button>
+      <lightning-button variant="brand" label="Continue" onclick={handlePasteContinue}></lightning-button>
+    </template>
+    <template lwc:elseif={isMatchFieldsState}>
+      <lightning-button variant="brand" label="Done" onclick={handleMatchFieldsDone}></lightning-button>
+    </template>
+    <template lwc:elseif={isColumnPickerState}>
+      <lightning-button variant="brand" label="Done" onclick={handleColumnPickerDone}></lightning-button>
+    </template>
+    <template lwc:elseif={isSaveOptionsState}>
+      <lightning-button
+        label="Back"
+        onclick={handleBackFromSaveOptions}
+        disabled={isSaving}
+        class="slds-m-right_x-small"
+      ></lightning-button>
+      <lightning-button
+        variant="brand"
+        label={saveButtonLabel}
+        disabled={isConfirmSaveDisabled}
+        onclick={handleConfirmSave}
+      ></lightning-button>
+    </template>
+    <template lwc:elseif={isResultsState}>
+      <lightning-button label="Back to Grid" onclick={handleBackToGrid} class="slds-m-right_x-small"></lightning-button>
+      <lightning-button variant="brand" label="Done" onclick={handleDone}></lightning-button>
+    </template>
+    <template lwc:else>
+      <div class="footer-actions">
+        <lightning-input
+          lwc:if={isNotQueryMode}
+          type="checkbox"
+          label="Ignore layout-required fields"
+          checked={ignoreLayoutRequired}
+          onchange={handleIgnoreLayoutRequiredChange}
+          class="ignore-required-checkbox"
+        ></lightning-input>
+        <lightning-button label="Cancel" onclick={handleCancel}></lightning-button>
+        <lightning-button
+          variant="brand"
+          label={saveButtonLabel}
+          disabled={isSaveDisabled}
+          onclick={handleSaveClick}
+        ></lightning-button>
+      </div>
+    </template>
+  </div>
+</template>

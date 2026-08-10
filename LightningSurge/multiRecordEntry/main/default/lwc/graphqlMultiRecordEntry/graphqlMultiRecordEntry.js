@@ -100,6 +100,15 @@ export default class GraphqlMultiRecordEntry extends NavigationMixin(LightningMo
    */
   @api requiredFieldsOnly = false;
 
+  /**
+   * Skips the layout picker and uses the Default Layout directly (recordTypeId: null - whatever
+   * layout the org resolves for the running user with no Record Type specified), the same
+   * resolution picking "Default Layout" from the picker reaches, just without showing it. Takes
+   * priority over layoutDeveloperName but not recordTypeId/showAllFields/requiredFieldsOnly.
+   * @type {boolean}
+   */
+  @api useDefaultLayout = false;
+
   /** Number of blank rows shown when the modal first opens. @type {number} @default 1 */
   @api initialRowCount = DEFAULT_INITIAL_ROW_COUNT;
 
@@ -225,6 +234,7 @@ export default class GraphqlMultiRecordEntry extends NavigationMixin(LightningMo
       recordTypeId: this.recordTypeId,
       showAllFields: this.showAllFields,
       requiredFieldsOnly: this.requiredFieldsOnly,
+      useDefaultLayout: this.useDefaultLayout,
       layoutDeveloperName: this.layoutDeveloperName,
       availableRecordTypes: recordTypes
     });

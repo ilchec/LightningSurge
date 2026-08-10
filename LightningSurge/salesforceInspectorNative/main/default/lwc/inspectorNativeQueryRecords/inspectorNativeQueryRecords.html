@@ -1,0 +1,43 @@
+<template>
+  <div class="slds-p-around_medium page-container">
+    <div class="query-input-row">
+      <lightning-textarea
+        label="SOQL Query"
+        placeholder={queryPlaceholder}
+        value={queryText}
+        onchange={handleQueryTextChange}
+        class="query-textarea"
+      ></lightning-textarea>
+      <lightning-button
+        variant="brand"
+        label="Execute Query"
+        onclick={handleRunQuery}
+        disabled={isRunDisabled}
+        class="slds-m-top_small"
+      ></lightning-button>
+    </div>
+
+    <div
+      lwc:if={errorText}
+      class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-top_medium"
+      role="alert"
+    >
+      <span>{errorText}</span>
+    </div>
+
+    <lightning-spinner lwc:if={isRunning} alternative-text="Running query" size="medium"></lightning-spinner>
+
+    <p lwc:if={hasNoResults} class="slds-text-align_center slds-text-color_weak slds-p-around_medium">No records found.</p>
+
+    <div lwc:if={hasResults} class="slds-m-top_medium">
+      <c-inspector-native-record-entry
+        query-mode
+        object-api-name={objectApiName}
+        query-field-api-names={fieldApiNames}
+        query-records={records}
+        ondone={handleReset}
+        oncancel={handleReset}
+      ></c-inspector-native-record-entry>
+    </div>
+  </div>
+</template>

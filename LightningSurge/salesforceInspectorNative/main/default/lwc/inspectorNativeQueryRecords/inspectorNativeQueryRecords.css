@@ -1,0 +1,13 @@
+.page-container {
+  max-width: 100%;
+}
+
+.query-input-row {
+  display: flex;
+  flex-direction: column;
+  max-width: 40rem;
+}
+
+.query-textarea {
+  font-family: monospace;
+}

@@ -1,0 +1,41 @@
+.page-container {
+  max-width: 100%;
+}
+
+.header-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.license-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.license-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0;
+}
+
+.license-label {
+  width: 16rem;
+  max-width: 40%;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.license-bar {
+  flex: 1;
+}
+
+.license-count {
+  width: 8rem;
+  flex-shrink: 0;
+  text-align: right;
+  white-space: nowrap;
+}

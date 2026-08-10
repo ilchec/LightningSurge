@@ -5,7 +5,7 @@
  * narrow, read-only, cacheable method is a deliberate exception to the rest of the repo's
  * GraphQL-only, no-Apex convention.
  */
-public with sharing class SalesforceInspectorNativeObjectPickerController {
+public with sharing class InspectorNativeObjectPicker {
     // System/internal-only object suffixes that are never useful to offer in a "create records"
     // picker - filtered out before the (comparatively expensive) per-object describe() call below,
     // not after, to keep a cold cacheable call cheap even in orgs with many packages installed.

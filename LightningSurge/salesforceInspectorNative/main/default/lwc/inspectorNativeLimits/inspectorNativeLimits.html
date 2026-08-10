@@ -1,0 +1,25 @@
+<template>
+  <div class="slds-p-around_medium page-container">
+    <div class="header-row">
+      <lightning-button label="Refresh" icon-name="utility:refresh" onclick={handleRefresh} disabled={isLoading}></lightning-button>
+    </div>
+
+    <lightning-spinner lwc:if={isLoading} alternative-text="Loading org limits" size="medium"></lightning-spinner>
+
+    <div lwc:if={errorText} class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-top_medium" role="alert">
+      <span>{errorText}</span>
+    </div>
+
+    <p lwc:if={hasNoLimits} class="slds-text-color_weak slds-p-around_small">No applicable org limits found.</p>
+
+    <div lwc:if={hasLimits} class="limit-grid slds-m-top_medium">
+      <template for:each={limitRows} for:item="row">
+        <div key={row.name} class="limit-card">
+          <lightning-progress-ring value={row.percent} variant={row.variant} size="medium"></lightning-progress-ring>
+          <span class="limit-name" title={row.name}>{row.name}</span>
+          <span class="limit-count">{row.usedOfMax}</span>
+        </div>
+      </template>
+    </div>
+  </div>
+</template>

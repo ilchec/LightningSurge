@@ -89,11 +89,13 @@ Once the modal closes (saved or cancelled), it navigates to the object's list vi
 ### 3. Salesforce Inspector Native app (no per-object setup at all)
 
 The [`salesforceInspectorNative`](../salesforceInspectorNative/README.md) package adds a
-standalone app (App Launcher → "Salesforce Inspector Native") whose Create Records tab is a live
-object picker in front of this same modal — no List View button or Quick Action to configure per
-object. It's a separate package that depends on this one also being deployed; see its README for
-setup. Unlike the other launch paths, its object list comes from a small Apex method (the only
-Apex in this repo — see that package's README for why).
+standalone app (App Launcher → "Salesforce Inspector Native") whose Create Records tab combines a
+live object picker with a layout picker in one row — no List View button or Quick Action to
+configure per object. Unlike this package's own launchers, that experience is **inline, not a
+modal**: it's a fully standalone package that vendors its own copy of this grid's engine, forked
+into a plain page component instead of a `LightningModal` (see that package's README for what that
+means for keeping the two in sync). Unlike the other launch paths, its object list comes from a
+small Apex method (the only Apex in this repo — see that package's README for why).
 
 ### 4. Programmatically, from your own LWC
 

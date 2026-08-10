@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomTab xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>Salesforce Inspector Native</label>
     <description>Salesforce Inspector Native - standalone toolset, starting with bulk record entry.</description>
-    <lwcComponent>salesforceInspectorNativeApp</lwcComponent>
+    <lwcComponent>inspectorNativeApp</lwcComponent>
     <motif>Custom63: Custom63</motif>
 </CustomTab>

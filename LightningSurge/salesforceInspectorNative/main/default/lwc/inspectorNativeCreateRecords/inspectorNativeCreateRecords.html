@@ -1,0 +1,42 @@
+<template>
+  <div class="slds-p-around_medium page-container">
+    <div class="selector-row">
+      <div class="selector-item">
+        <lightning-combobox
+          label="Object"
+          placeholder="Select an object..."
+          options={objectOptions}
+          value={selectedObjectApiName}
+          disabled={isLoadingObjects}
+          onchange={handleObjectSelect}
+        ></lightning-combobox>
+      </div>
+      <div lwc:if={hasSelectedObject} class="selector-item">
+        <lightning-combobox
+          label="Layout"
+          placeholder="Select a layout..."
+          options={recordTypeOptions}
+          onchange={handleLayoutSelect}
+        ></lightning-combobox>
+      </div>
+    </div>
+
+    <div lwc:if={errorText} class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-top_medium" role="alert">
+      <span>{errorText}</span>
+    </div>
+
+    <lightning-spinner lwc:if={isLoadingObjects} alternative-text="Loading objects" size="medium"></lightning-spinner>
+
+    <div lwc:if={isReadyToShowGrid} class="slds-m-top_medium">
+      <c-inspector-native-record-entry
+        object-api-name={selectedObjectApiName}
+        record-type-id={recordEntryRecordTypeId}
+        show-all-fields={recordEntryShowAllFields}
+        required-fields-only={recordEntryRequiredFieldsOnly}
+        use-default-layout={recordEntryUseDefaultLayout}
+        ondone={handleEntryDone}
+        oncancel={handleEntryCancel}
+      ></c-inspector-native-record-entry>
+    </div>
+  </div>
+</template>
