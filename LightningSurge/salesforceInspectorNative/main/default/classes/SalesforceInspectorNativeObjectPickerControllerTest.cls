@@ -1,0 +1,49 @@
+@IsTest
+private class SalesforceInspectorNativeObjectPickerControllerTest {
+    @IsTest
+    static void returnsASortedNonEmptyListIncludingAKnownStandardObject() {
+        Test.startTest();
+        List<SalesforceInspectorNativeObjectPickerController.ObjectOption> options =
+            SalesforceInspectorNativeObjectPickerController.getCreatableObjects();
+        Test.stopTest();
+
+        System.assert(!options.isEmpty(), 'Expected at least one creatable object to be returned');
+
+        Boolean foundAccount = false;
+        for (SalesforceInspectorNativeObjectPickerController.ObjectOption option : options) {
+            System.assert(String.isNotBlank(option.apiName), 'Every option should have an apiName');
+            System.assert(String.isNotBlank(option.label), 'Every option should have a label');
+            if (option.apiName == 'Account') {
+                foundAccount = true;
+            }
+        }
+        System.assert(foundAccount, 'Account is creatable/queryable in every org and should be in the list');
+
+        for (Integer i = 1; i < options.size(); i++) {
+            System.assert(
+                options.get(i - 1).label.compareTo(options.get(i).label) <= 0,
+                'Options should be sorted by label'
+            );
+        }
+    }
+
+    @IsTest
+    static void excludesObjectsWithFilteredSuffixesAndNonCreateableObjects() {
+        List<SalesforceInspectorNativeObjectPickerController.ObjectOption> options =
+            SalesforceInspectorNativeObjectPickerController.getCreatableObjects();
+
+        for (SalesforceInspectorNativeObjectPickerController.ObjectOption option : options) {
+            System.assert(!option.apiName.endsWith('__History'), 'History objects should be filtered out: ' + option.apiName);
+            System.assert(!option.apiName.endsWith('__Share'), 'Share objects should be filtered out: ' + option.apiName);
+            System.assert(!option.apiName.endsWith('__Feed'), 'Feed objects should be filtered out: ' + option.apiName);
+        }
+
+        Boolean foundAccountHistory = false;
+        for (SalesforceInspectorNativeObjectPickerController.ObjectOption option : options) {
+            if (option.apiName == 'AccountHistory') {
+                foundAccountHistory = true;
+            }
+        }
+        System.assert(!foundAccountHistory, 'AccountHistory is not creatable and should not appear');
+    }
+}

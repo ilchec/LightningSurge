@@ -2,12 +2,14 @@ import { buildAutoMapping } from 'c/graphqlMultiRecordEntryCsvUtils';
 import { api, LightningElement } from 'lwc';
 
 const DRAG_OVER_CLASS = 'slds-theme_shade';
+const NONE_OPTION = { label: '— None —', value: '' };
 
 /**
- * Drag-and-drop dialog for mapping CSV columns onto Salesforce fields before importing them.
- * Fields whose API name exactly matches a CSV header are pre-filled; all other assignment
- * happens by dragging a CSV column chip onto a field's drop zone (or back to the column pool
- * to unmap it). Internal helper component, not intended for standalone use.
+ * Dialog for mapping CSV columns onto Salesforce fields before importing them. Fields whose API
+ * name exactly matches a CSV header are pre-filled. Every field row offers two equivalent ways to
+ * assign the rest: a combobox (keyboard/touch friendly), or dragging a CSV column chip onto the
+ * field's drop zone (or back to the column pool to unmap it) - both read/write the same mapping
+ * state, so they always stay in sync. Internal helper component, not intended for standalone use.
  * @alias GraphqlMultiRecordEntryMapping
  * @extends LightningElement
  * @hideconstructor
@@ -33,16 +35,24 @@ export default class GraphqlMultiRecordEntryMapping extends LightningElement {
     this.recomputeUnmapped();
   }
 
+  // Drag-and-drop is the only way to assign a mapping otherwise - no keyboard alternative, and
+  // native HTML5 drag-and-drop is unreliable on touch devices. Each row also gets a combobox
+  // driven by the same _fieldMapping state, so assigning/changing/clearing a mapping works
+  // without a mouse, alongside (not instead of) the existing drag-and-drop.
   get mappingRows() {
+    const mappedHeaders = new Set(Object.values(this._fieldMapping).filter(Boolean));
     return this.columns.map((column) => {
       const mappedHeader = this._fieldMapping[column.apiName] || null;
+      const selectableHeaders = this.csvHeaders.filter((header) => header === mappedHeader || !mappedHeaders.has(header));
       return {
         apiName: column.apiName,
         label: column.label,
         required: column.required,
         mappedHeader,
         isMapped: Boolean(mappedHeader),
-        isMatchField: this.matchFieldApiNames.includes(column.apiName)
+        isMatchField: this.matchFieldApiNames.includes(column.apiName),
+        comboboxValue: mappedHeader || '',
+        comboboxOptions: [NONE_OPTION, ...selectableHeaders.map((header) => ({ label: header, value: header }))]
       };
     });
   }
@@ -111,6 +121,17 @@ export default class GraphqlMultiRecordEntryMapping extends LightningElement {
 
   handleUnmapClick(event) {
     this.unassignMapping(event.currentTarget.dataset.header);
+  }
+
+  handleMappingSelect(event) {
+    const apiName = event.currentTarget.dataset.apiName;
+    const header = event.detail.value;
+    if (header) {
+      this.assignMapping(apiName, header);
+    } else {
+      const currentHeader = this._fieldMapping[apiName];
+      if (currentHeader) this.unassignMapping(currentHeader);
+    }
   }
 
   handleMatchFieldToggle(event) {

@@ -188,7 +188,12 @@ export function buildFieldModels(layoutItem, objectInfo, formValues, picklistDat
 export function serializeGqlValue(dataType, value) {
   if (value === null || value === undefined || value === '') return 'null';
   if (dataType === 'Boolean') return String(Boolean(value));
-  if (NUMERIC_DATA_TYPES.has(dataType)) return String(Number(value));
+  if (NUMERIC_DATA_TYPES.has(dataType)) {
+    // A bare NaN literal is invalid GraphQL syntax and would fail the whole aliased batch
+    // mutation, not just this row's alias - fall back to null instead of ever emitting it.
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? 'null' : String(parsed);
+  }
   const escaped = String(value)
     .replaceAll('\\', String.raw`\\`)
     .replaceAll('"', String.raw`\"`);

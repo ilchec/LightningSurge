@@ -22,6 +22,7 @@ import {
   extractSaveResults,
   filterVisibleColumnGroups,
   flattenColumnGroups,
+  isValidObjectApiName,
   resolveRecordTypeSelection
 } from 'c/graphqlMultiRecordEntryUtils';
 
@@ -362,5 +363,19 @@ describe('buildRecordTypeQuery', () => {
     const query = buildRecordTypeQuery('Lead');
     expect(query).toContain('SobjectType: { eq: "Lead" }');
     expect(query).toContain('IsActive: { eq: true }');
+  });
+});
+
+describe('isValidObjectApiName', () => {
+  it('accepts standard and custom/packaged object API names', () => {
+    ['Lead', 'Account', 'My_Custom_Object__c', 'my_namespace__Object__c'].forEach((name) => {
+      expect(isValidObjectApiName(name)).toBe(true);
+    });
+  });
+
+  it('rejects values that could alter GraphQL query structure when interpolated unescaped', () => {
+    ['Lead" } }, { IsActive: { eq: true', 'Lead}', 'Lead Account', '', null, undefined, 123].forEach((name) => {
+      expect(isValidObjectApiName(name)).toBe(false);
+    });
   });
 });

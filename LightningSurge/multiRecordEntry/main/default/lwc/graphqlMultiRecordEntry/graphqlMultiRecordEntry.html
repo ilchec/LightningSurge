@@ -34,9 +34,9 @@
 
       <template lwc:elseif={isMappingState}>
         <p class="slds-text-body_regular slds-m-bottom_medium">
-          Drag a column onto the Salesforce field it should fill. Fields with a matching column name are mapped
-          automatically. Check "Match key" next to a field to update existing records instead of always creating
-          new ones.
+          Choose a column for each Salesforce field (or drag a column onto it). Fields with a matching column name
+          are mapped automatically. Check "Match key" next to a field to update existing records instead of always
+          creating new ones.
         </p>
         <div lwc:if={csvPreviewRows.length} class="preview-table-wrapper">
           <p class="slds-text-body_small slds-text-color_weak slds-p-bottom_x-small">Preview of the imported data</p>
@@ -230,6 +230,20 @@
             class="slds-assistive-text"
             onchange={handleCsvFileChange}
           />
+          <lightning-button-group class="view-mode-toggle">
+            <lightning-button
+              label="Field View"
+              variant={fieldViewButtonVariant}
+              data-value="field"
+              onclick={handleViewModeChange}
+            ></lightning-button>
+            <lightning-button
+              label="Table View"
+              variant={tableViewButtonVariant}
+              data-value="table"
+              onclick={handleViewModeChange}
+            ></lightning-button>
+          </lightning-button-group>
         </div>
         <div lwc:if={hasMatchFields} class="slds-text-body_small slds-text-color_weak matching-by-line">
           Matching by: {matchFieldSummary}
@@ -250,6 +264,14 @@
                   </th>
                 </template>
               </tr>
+              <tr lwc:if={isTableView} class="slds-line-height_reset">
+                <th class="row-action-col" scope="col"></th>
+                <template for:each={visibleFlatColumns} for:item="column">
+                  <th key={column.apiName} scope="col" class="raw-cell-col">
+                    <div class="slds-truncate" title={column.label}>{column.label}</div>
+                  </th>
+                </template>
+              </tr>
             </thead>
             <tbody>
               <template for:each={rows} for:item="row">
@@ -264,12 +286,22 @@
                     ></lightning-button-icon>
                   </td>
                   <template for:each={row.cells} for:item="cell">
-                    <td key={cell.apiName} class="field-col">
+                    <td key={cell.apiName} class={cellColumnClass}>
                       <c-graphql-record-form-field
+                        lwc:if={isFieldView}
                         field={cell}
                         data-row-id={row.clientId}
                         onfieldchange={handleFieldChange}
                       ></c-graphql-record-form-field>
+                      <input
+                        lwc:else
+                        type="text"
+                        class="raw-cell-input"
+                        value={cell.rawValue}
+                        data-row-id={row.clientId}
+                        data-api-name={cell.apiName}
+                        onchange={handleRawCellChange}
+                      />
                     </td>
                   </template>
                 </tr>
@@ -332,7 +364,7 @@
       <lightning-button
         variant="brand"
         label={saveButtonLabel}
-        disabled={isSaving}
+        disabled={isConfirmSaveDisabled}
         onclick={handleConfirmSave}
       ></lightning-button>
     </template>

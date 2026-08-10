@@ -21,6 +21,12 @@
   cursor: grab;
 }
 
+.mapping-target {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
 .drop-zone {
   min-height: 2rem;
   display: flex;

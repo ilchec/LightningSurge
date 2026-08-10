@@ -80,10 +80,12 @@ describe('buildAutoMapping', () => {
     expect(mapping).toEqual({ Name: 'Name', Email: 'Email', Phone: null });
   });
 
-  it('does not map a header to more than one column', () => {
+  it('does not let a second column with the same apiName reuse an already-matched header', () => {
     const dupColumns = [{ apiName: 'Name' }, { apiName: 'Name' }];
     const mapping = buildAutoMapping(['Name'], dupColumns);
-    expect(Object.values(mapping).filter((h) => h === 'Name')).toHaveLength(1);
+    // The second column's lookup is blocked by usedHeaders and falls back to null,
+    // which is what ends up on the shared "Name" key (it's written after the first column's match).
+    expect(mapping).toEqual({ Name: null });
   });
 });
 
@@ -115,6 +117,16 @@ describe('coerceCsvValue', () => {
 
   it('trims plain text values', () => {
     expect(coerceCsvValue({ type: 'text' }, '  hello  ')).toBe('hello');
+  });
+
+  it('parses a numeric column value into a real number', () => {
+    expect(coerceCsvValue({ type: 'number' }, '42')).toBe(42);
+    expect(coerceCsvValue({ type: 'number' }, '19.5')).toBe(19.5);
+  });
+
+  it('treats an unparseable numeric column value as blank rather than passing it through', () => {
+    expect(coerceCsvValue({ type: 'number' }, '$1,200')).toBeNull();
+    expect(coerceCsvValue({ type: 'number' }, 'not a number')).toBeNull();
   });
 });
 

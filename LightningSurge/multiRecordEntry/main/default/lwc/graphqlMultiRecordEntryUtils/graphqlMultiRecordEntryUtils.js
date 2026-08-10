@@ -323,6 +323,20 @@ export function resolveRecordTypeSelection({
  * unwieldy). A falsy or empty hiddenApiNames leaves every column visible. Groups that end up with
  * no visible columns are dropped so their header row doesn't render either.
  */
+const OBJECT_API_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]*$/;
+
+/**
+ * Whether a string is safe to use as a Salesforce object API name when building GraphQL query/
+ * mutation strings (buildRecordTypeQuery, buildUpsertMutation, buildMatchQuery all interpolate it
+ * directly, unescaped). objectApiName can come straight from a URL parameter on the Page launcher
+ * (lightning__UrlAddressable, so no Setup-side control over what's passed), so it must be checked
+ * before it's ever used to build a query - rejecting anything but letters/digits/underscores rules
+ * out quotes, braces, and whitespace that could otherwise alter the query's structure.
+ */
+export function isValidObjectApiName(objectApiName) {
+  return typeof objectApiName === 'string' && OBJECT_API_NAME_PATTERN.test(objectApiName);
+}
+
 export function filterVisibleColumnGroups(columnGroups, hiddenApiNames) {
   if (!hiddenApiNames || hiddenApiNames.size === 0) return columnGroups;
   return columnGroups

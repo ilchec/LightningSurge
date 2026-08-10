@@ -34,38 +34,50 @@
             <span class="slds-checkbox_faux"></span>
             <span class="slds-form-element__label slds-text-body_small">Match key</span>
           </label>
-          <div
-            class="slds-box slds-box_x-small drop-zone"
-            data-api-name={row.apiName}
-            ondragover={handleFieldDragOver}
-            ondragleave={handleFieldDragLeave}
-            ondrop={handleFieldDrop}
-          >
-            <template lwc:if={row.isMapped}>
-              <span
-                class="slds-badge csv-chip"
-                draggable="true"
-                data-header={row.mappedHeader}
-                ondragstart={handleChipDragStart}
-              >
-                {row.mappedHeader}
-                <button
-                  class="slds-button slds-button_icon slds-button_icon-x-small slds-m-left_xx-small"
+          <div class="mapping-target">
+            <lightning-combobox
+              class="mapping-select"
+              label={row.label}
+              variant="label-hidden"
+              placeholder="Choose a column..."
+              value={row.comboboxValue}
+              options={row.comboboxOptions}
+              data-api-name={row.apiName}
+              onchange={handleMappingSelect}
+            ></lightning-combobox>
+            <div
+              class="slds-box slds-box_x-small drop-zone"
+              data-api-name={row.apiName}
+              ondragover={handleFieldDragOver}
+              ondragleave={handleFieldDragLeave}
+              ondrop={handleFieldDrop}
+            >
+              <template lwc:if={row.isMapped}>
+                <span
+                  class="slds-badge csv-chip"
+                  draggable="true"
                   data-header={row.mappedHeader}
-                  onclick={handleUnmapClick}
-                  title="Remove mapping"
+                  ondragstart={handleChipDragStart}
                 >
-                  <lightning-icon
-                    icon-name="utility:close"
-                    size="xx-small"
-                    alternative-text="Remove mapping"
-                  ></lightning-icon>
-                </button>
-              </span>
-            </template>
-            <template lwc:else>
-              <span class="slds-text-color_weak slds-text-body_small">Drop a column here</span>
-            </template>
+                  {row.mappedHeader}
+                  <button
+                    class="slds-button slds-button_icon slds-button_icon-x-small slds-m-left_xx-small"
+                    data-header={row.mappedHeader}
+                    onclick={handleUnmapClick}
+                    title="Remove mapping"
+                  >
+                    <lightning-icon
+                      icon-name="utility:close"
+                      size="xx-small"
+                      alternative-text="Remove mapping"
+                    ></lightning-icon>
+                  </button>
+                </span>
+              </template>
+              <template lwc:else>
+                <span class="slds-text-color_weak slds-text-body_small">or drop a column here</span>
+              </template>
+            </div>
           </div>
         </div>
       </template>

@@ -1,5 +1,12 @@
 import CURRENT_USER_ID from '@salesforce/user/Id';
-import { buildCsvTemplate, buildResultsCsv, mapCsvRowToValues, parseClipboardData, parseCsv } from 'c/graphqlMultiRecordEntryCsvUtils';
+import {
+  buildCsvTemplate,
+  buildResultsCsv,
+  coerceCsvValue,
+  mapCsvRowToValues,
+  parseClipboardData,
+  parseCsv
+} from 'c/graphqlMultiRecordEntryCsvUtils';
 import {
   buildAllFieldsColumnGroups,
   buildColumnGroups,
@@ -12,6 +19,7 @@ import {
   extractSaveResults,
   filterVisibleColumnGroups,
   flattenColumnGroups,
+  isValidObjectApiName,
   resolveRecordTypeSelection
 } from 'c/graphqlMultiRecordEntryUtils';
 import { GraphqlQueryBridge } from 'c/graphqlMultiRecordEntryQueryBridge';
@@ -24,7 +32,7 @@ import { getRecordCreateDefaults } from 'lightning/uiRecordApi';
 import { api, wire } from 'lwc';
 
 // Bump on every change so it's visible which deployed version is running in the org.
-const COMPONENT_VERSION = 'v3.0.0';
+const COMPONENT_VERSION = 'v3.1.0';
 
 const DEFAULT_INITIAL_ROW_COUNT = 1;
 const DEFAULT_MAX_ROWS = 200;
@@ -44,6 +52,8 @@ const DEFAULT_LAYOUT_OPTION_VALUE = '__DEFAULT_LAYOUT__';
 const ALL_FIELDS_OPTION_VALUE = '__ALL_FIELDS__';
 const REQUIRED_ONLY_OPTION_VALUE = '__REQUIRED_ONLY__';
 const CSV_PREVIEW_ROW_COUNT = 3;
+const VIEW_MODE_FIELD = 'field';
+const VIEW_MODE_TABLE = 'table';
 
 /**
  * Object-agnostic modal for creating (or upserting, when match-key fields are selected) many
@@ -128,8 +138,16 @@ export default class GraphqlMultiRecordEntry extends NavigationMixin(LightningMo
   _showRequiredOnly = false;
   _ignoreLayoutRequired = false;
   _hiddenColumnApiNames = new Set();
+  _viewMode = VIEW_MODE_FIELD;
 
   connectedCallback() {
+    // objectApiName is interpolated unescaped into every GraphQL query/mutation this component
+    // builds, and on the Page launcher it comes straight from a URL parameter - reject anything
+    // that isn't a plain API name before it's ever used to build a query.
+    if (!isValidObjectApiName(this.objectApiName)) {
+      this.setError({ message: `"${this.objectApiName}" isn't a valid object API name.` });
+      return;
+    }
     this.resolveRecordType();
   }
 
@@ -314,8 +332,11 @@ export default class GraphqlMultiRecordEntry extends NavigationMixin(LightningMo
     return COMPONENT_VERSION;
   }
 
+  // hasError must short-circuit isLoading - otherwise a wire-level load failure (setError()
+  // without ever populating _layoutContext, e.g. wiredCreateDefaults' error branch) leaves the
+  // spinner running forever, since the error banner only renders in isLoading's lwc:else branch.
   get isLoading() {
-    return !this._layoutContext && !this.isRecordTypePickerState;
+    return !this._layoutContext && !this.hasError && !this.isRecordTypePickerState;
   }
 
   get hasError() {
@@ -364,12 +385,17 @@ export default class GraphqlMultiRecordEntry extends NavigationMixin(LightningMo
     return this._uiState === UI_STATE_COLUMN_PICKER;
   }
 
+  // Required columns are excluded from the hideable set entirely - hiding one would remove its
+  // input from the grid without removing the requirement, leaving no way to satisfy it (and
+  // reportValidity() only checks rendered fields, so it wouldn't even catch the omission).
   get columnVisibilityOptions() {
-    return this._flatColumns.map((column) => ({ label: column.label, value: column.apiName }));
+    return this._flatColumns
+      .filter((column) => !this.effectiveRequired(column))
+      .map((column) => ({ label: column.label, value: column.apiName }));
   }
 
   get visibleColumnApiNames() {
-    return this._flatColumns.map((column) => column.apiName).filter((apiName) => !this._hiddenColumnApiNames.has(apiName));
+    return this.columnVisibilityOptions.map((option) => option.value).filter((apiName) => !this._hiddenColumnApiNames.has(apiName));
   }
 
   get hasHiddenColumns() {
@@ -384,11 +410,12 @@ export default class GraphqlMultiRecordEntry extends NavigationMixin(LightningMo
     this._uiState = UI_STATE_GRID;
   }
 
+  // Scoped to the hideable (non-required) apiNames only, so a required column - which never
+  // appears as an option in the dual-listbox at all - can never end up in _hiddenColumnApiNames.
   handleColumnVisibilityChange(event) {
     const visible = new Set(event.detail.value);
-    this._hiddenColumnApiNames = new Set(
-      this._flatColumns.map((column) => column.apiName).filter((apiName) => !visible.has(apiName))
-    );
+    const hideableApiNames = this.columnVisibilityOptions.map((option) => option.value);
+    this._hiddenColumnApiNames = new Set(hideableApiNames.filter((apiName) => !visible.has(apiName)));
   }
 
   handleShowAllColumns() {
@@ -406,9 +433,37 @@ export default class GraphqlMultiRecordEntry extends NavigationMixin(LightningMo
         .map((column) => ({
           ...column,
           required: this.effectiveRequired(column),
-          value: row.values[column.apiName] ?? null
+          value: row.values[column.apiName] ?? null,
+          rawValue: String(row.values[column.apiName] ?? '')
         }))
     }));
+  }
+
+  // Table View (dense, CSV-like raw editing) vs Field View (today's typed-per-field grid) - both
+  // render from this same rows/columnGroups data, just with different per-cell markup, so
+  // switching modes mid-edit can never lose or duplicate anything.
+  get isFieldView() {
+    return this._viewMode === VIEW_MODE_FIELD;
+  }
+
+  get isTableView() {
+    return this._viewMode === VIEW_MODE_TABLE;
+  }
+
+  get fieldViewButtonVariant() {
+    return this.isFieldView ? 'brand' : 'neutral';
+  }
+
+  get tableViewButtonVariant() {
+    return this.isTableView ? 'brand' : 'neutral';
+  }
+
+  get cellColumnClass() {
+    return this.isTableView ? 'raw-cell-col' : 'field-col';
+  }
+
+  handleViewModeChange(event) {
+    this._viewMode = event.currentTarget.dataset.value;
   }
 
   get isAddRowDisabled() {
@@ -458,6 +513,13 @@ export default class GraphqlMultiRecordEntry extends NavigationMixin(LightningMo
 
   get isSaveDisabled() {
     return this.isSaving || this.touchedRowCount === 0;
+  }
+
+  // isLoadingMatchPreview holds the query bridge's single slot (see loadMatchPreview) - letting
+  // Confirm Save fire while it's still in flight would race it for that slot and fail the whole
+  // save with a spurious "one at a time" error unrelated to the actual data.
+  get isConfirmSaveDisabled() {
+    return this.isSaving || this.isLoadingMatchPreview;
   }
 
   get validationErrors() {
@@ -667,6 +729,21 @@ export default class GraphqlMultiRecordEntry extends NavigationMixin(LightningMo
   handleFieldChange(event) {
     const clientId = Number(event.currentTarget.dataset.rowId);
     const { apiName, value } = event.detail;
+    this.applyFieldValue(clientId, apiName, value);
+  }
+
+  // Table View (raw text cells, no per-type Lightning input) - coerced through the same
+  // coerceCsvValue used for CSV/paste import, so a typed "true" or a loosely-formatted date
+  // behaves identically whether it came from an import or straight from a Table View cell.
+  handleRawCellChange(event) {
+    const clientId = Number(event.currentTarget.dataset.rowId);
+    const apiName = event.currentTarget.dataset.apiName;
+    const column = this._flatColumns.find((c) => c.apiName === apiName);
+    const value = coerceCsvValue(column, event.target.value);
+    this.applyFieldValue(clientId, apiName, value);
+  }
+
+  applyFieldValue(clientId, apiName, value) {
     this._rows = this._rows.map((row) => {
       if (row.clientId !== clientId) return row;
       return { ...row, touched: true, errorMessage: '', values: { ...row.values, [apiName]: value } };
@@ -678,13 +755,7 @@ export default class GraphqlMultiRecordEntry extends NavigationMixin(LightningMo
     this.close(null);
   }
 
-  /**
-   * Validates every touched row's fields and builds a "Row N: Label — message" summary (shown
-   * next to Save), in addition to the existing inline per-field validation state. On failure,
-   * also raises a sticky (manually-dismissed) toast with the same summary so the user can copy
-   * it out before fixing the rows.
-   */
-  reportValidity() {
+  collectFieldViewErrors() {
     const fieldElements = this.template.querySelectorAll('c-graphql-record-form-field');
     const errors = [];
     fieldElements.forEach((fieldEl) => {
@@ -698,6 +769,39 @@ export default class GraphqlMultiRecordEntry extends NavigationMixin(LightningMo
         message: `Row ${rowNumber}: ${fieldEl.field.label} — ${fieldEl.getValidationMessage()}`
       });
     });
+    return errors;
+  }
+
+  // Table View has no rendered per-field elements to ask for native constraint validation (format
+  // checks like a malformed email aren't caught here), so this checks the one thing that matters
+  // model-side instead: a required, visible, editable column left blank on a touched row.
+  collectTableViewErrors() {
+    const visibleApiNames = new Set(this.visibleFlatColumns.map((column) => column.apiName));
+    const errors = [];
+    this._rows.forEach((row, index) => {
+      if (!row.touched) return;
+      this._flatColumns
+        .filter((column) => column.editable && visibleApiNames.has(column.apiName) && this.effectiveRequired(column))
+        .forEach((column) => {
+          const value = row.values[column.apiName];
+          if (value !== null && value !== undefined && value !== '') return;
+          errors.push({
+            key: `${row.clientId}-${column.apiName}`,
+            message: `Row ${index + 1}: ${column.label} — Complete this field.`
+          });
+        });
+    });
+    return errors;
+  }
+
+  /**
+   * Validates every touched row's fields and builds a "Row N: Label — message" summary (shown
+   * next to Save), in addition to the existing inline per-field validation state. On failure,
+   * also raises a sticky (manually-dismissed) toast with the same summary so the user can copy
+   * it out before fixing the rows.
+   */
+  reportValidity() {
+    const errors = this.isTableView ? this.collectTableViewErrors() : this.collectFieldViewErrors();
     this._validationErrors = errors;
     if (errors.length) {
       showToast(
@@ -724,7 +828,12 @@ export default class GraphqlMultiRecordEntry extends NavigationMixin(LightningMo
   // uses per-batch) so the Save Options screen can show "N will create, M will update" before
   // anything is actually submitted. Non-critical - if it fails, saving still works normally, it
   // just won't show counts; the real match resolution happens again (and can fail loudly) at save.
+  //
+  // Not reentrant by design: if one is already running (e.g. Back then Save again before a
+  // multi-batch preview finished), a second call is a no-op rather than overlapping it - both
+  // would share the single-slot query bridge and race for it otherwise.
   async loadMatchPreview() {
+    if (this.isLoadingMatchPreview) return;
     this.isLoadingMatchPreview = true;
     try {
       const touchedRows = this._rows.filter((row) => row.touched);

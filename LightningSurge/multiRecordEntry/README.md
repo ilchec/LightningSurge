@@ -86,7 +86,16 @@ first paint of a page reached this way doesn't always have the Lightning Overlay
 so auto-open retries once and otherwise leaves something clickable instead of a blank-looking page.
 Once the modal closes (saved or cancelled), it navigates to the object's list view.
 
-### 3. Programmatically, from your own LWC
+### 3. Salesforce Inspector Native app (no per-object setup at all)
+
+The [`salesforceInspectorNative`](../salesforceInspectorNative/README.md) package adds a
+standalone app (App Launcher → "Salesforce Inspector Native") whose Create Records tab is a live
+object picker in front of this same modal — no List View button or Quick Action to configure per
+object. It's a separate package that depends on this one also being deployed; see its README for
+setup. Unlike the other launch paths, its object list comes from a small Apex method (the only
+Apex in this repo — see that package's README for why).
+
+### 4. Programmatically, from your own LWC
 
 ```js
 import GraphqlMultiRecordEntry from 'c/graphqlMultiRecordEntry';
@@ -158,9 +167,11 @@ reachable regardless of Record Type assignment.
 **Download CSV Template** gives you a file headered with the right field API names. **Import CSV**
 and **Paste from Excel** both lead to the same mapping screen (fields whose API name matches a
 column/header exactly are pre-mapped) with a preview of the first few rows of whatever you're
-importing, so a column can be checked against real data before committing to a mapping. Paste from
-Excel expects tab-separated data with a header row - exactly what you get pasting a copied range of
-spreadsheet cells - parsed with the same quoted-field handling as CSV import.
+importing, so a column can be checked against real data before committing to a mapping. Each field
+offers two equivalent ways to map it: a dropdown, or dragging a column chip onto it - use whichever
+is more convenient. Paste from Excel expects tab-separated data with a header row - exactly what
+you get pasting a copied range of spreadsheet cells - parsed with the same quoted-field handling as
+CSV import.
 
 ## Matching and upsert
 
@@ -184,6 +195,22 @@ it - the real match resolution happens again (and can fail loudly) at save time 
 most useful in All Fields mode, where the column count can otherwise be unwieldy. Hidden fields are
 simply not shown or editable; any existing value (like a default) is untouched, and the field
 remains fully available in CSV/paste mapping.
+
+## Field View vs. Table View
+
+**Field View** (the default) shows each cell as its own typed input - a checkbox for Boolean
+fields, a combobox for picklists, a record picker for lookups, and so on - with native
+browser/Lightning format validation on each one.
+
+**Table View** switches every cell to a plain, dense text box instead - closer to editing a raw
+CSV, and enough narrower per column that more columns fit on screen at once. Both views edit the
+exact same underlying row data, so switching back and forth never loses anything already typed. A
+raw cell is parsed the same way a CSV/paste cell is (`true`/`yes`/`1` for a checkbox, a loosely
+parseable date for a datetime field, and so on) - type the same kind of value you'd put in a CSV
+file. **Table View trades away format validation for density**: it still catches a required field
+left blank, but not a malformed value (an invalid email, an out-of-range number) - those are only
+caught server-side at save time in Table View, unlike Field View where the input itself refuses an
+invalid value as you type.
 
 ## Save modes
 
@@ -238,7 +265,7 @@ npm run test:unit
 | `graphqlMultiRecordEntry` | The modal itself. All the grid/CSV/matching/save orchestration lives here; the record-type-selection decision and the query-wire bridge are delegated to the two modules below. `isExposed: false` — opened via `.open()`, not placed on a page. |
 | `graphqlMultiRecordEntryAction` | Quick Action / page-component launcher. |
 | `graphqlMultiRecordEntryPage` | `lightning__UrlAddressable` launcher for List View buttons. |
-| `graphqlMultiRecordEntryMapping` | Drag-and-drop CSV/paste-column-to-field mapping screen. |
+| `graphqlMultiRecordEntryMapping` | CSV/paste-column-to-field mapping screen (dropdown or drag-and-drop, per field). |
 | `graphqlMultiRecordEntryUtils` | GraphQL query/mutation string builders (upsert mutation, match query, Record Type query), result extraction, and the pure record-type-selection/column-visibility decision logic. |
 | `graphqlMultiRecordEntryCsvUtils` | CSV/tab-separated parsing, template generation, results export, auto-mapping. |
 | `graphqlMultiRecordEntryQueryBridge` | Plain JS class bridging the reactive `lightning/graphql` query wire (there's no imperative query executor) to an awaitable Promise. Not a component - kept as its own bundle so it's unit-testable in isolation from any wire/DOM setup. |

@@ -7,6 +7,10 @@
     {
       "path": "multiRecordEntry",
       "default": false
+    },
+    {
+      "path": "salesforceInspectorNative",
+      "default": false
     }
   ],
   "name": "LightningSurge",

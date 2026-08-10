@@ -86,6 +86,13 @@ export function coerceCsvValue(column, rawValue) {
     const parsed = new Date(trimmed);
     return Number.isNaN(parsed.getTime()) ? trimmed : parsed.toISOString();
   }
+  if (column?.type === 'number') {
+    const parsed = Number(trimmed);
+    // Treated the same as a blank cell rather than passing an unparseable string through - it
+    // would otherwise reach serializeGqlValue as NaN, which corrupts the outgoing GraphQL
+    // mutation for the whole batch, not just this row.
+    return Number.isNaN(parsed) ? null : parsed;
+  }
   return trimmed;
 }
 

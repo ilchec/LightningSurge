@@ -6,7 +6,8 @@ API GraphQL wire adapter (`lightning/graphql`) instead of Apex wherever possible
 Each topic — a feature or component family — lives in its own top-level folder and is
 independently deployable: no topic depends on another topic's folder. That's a deliberate
 constraint, not an accident: `sf project deploy start --source-dir <topic>` should always work on
-its own, without pulling in unrelated components.
+its own, without pulling in unrelated components. `salesforceInspectorNative` is the one documented
+exception — see its row in the topic table below.
 
 ## Repo structure
 
@@ -14,8 +15,9 @@ This is a standard SFDX project (`sfdx-project.json`) with one **package directo
 each mirroring the usual `<topic>/main/default/...` metadata layout:
 
 ```
-multiRecordEntry/    → main/default/lwc/...   (see multiRecordEntry/README.md)
-force-app/            → main/default/lwc/...   (everything not yet split into its own topic)
+multiRecordEntry/          → main/default/lwc/...   (see multiRecordEntry/README.md)
+salesforceInspectorNative/ → main/default/lwc/...   (see salesforceInspectorNative/README.md)
+force-app/                  → main/default/lwc/...   (everything not yet split into its own topic)
 ```
 
 ### Topics
@@ -23,6 +25,7 @@ force-app/            → main/default/lwc/...   (everything not yet split into 
 | Topic | What it is |
 |---|---|
 | [`multiRecordEntry`](multiRecordEntry/README.md) | Bulk create/upsert any object's records in a spreadsheet-style modal, with CSV import/export, match-key upserts, and a layout/Record Type picker. |
+| [`salesforceInspectorNative`](salesforceInspectorNative/README.md) | Standalone Lightning app (App Launcher entry point), meant to grow into a home for more than one tool over time. Its one tab today, Create Records, is an object picker in front of `multiRecordEntry`'s modal. **Depends on `multiRecordEntry` also being deployed** — the one exception to "no topic depends on another topic's folder," documented in its own README along with why. |
 
 `force-app` is the original, not-yet-split package directory. It currently holds:
 
