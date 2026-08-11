@@ -2,7 +2,12 @@
 
 A standalone Lightning app, reached via the App Launcher, meant to grow into a home for more than
 one admin/developer tool over time. Today it has five tabs: Create Records, Query Records,
-Field Creator, Permissions and Groups, and Limits and Licenses.
+Field Creator, Permissions and Groups, and Limits and Licenses - laid out as a **vertical nav on
+the left**, not a horizontal tabset, so there's room to keep adding tabs without running out of
+header space. Which tabs actually show up is configurable per org (see "Tab visibility" below) -
+**Field Creator ships disabled by default**, since its one write path (the Tooling API field-
+creation callout) is still unresolved as of this writing; see its own section below for the full,
+increasingly long story.
 
 ## Fully standalone
 
@@ -107,6 +112,44 @@ against its own known Id rather than a create.
   **This callout needs a one-time manual Setup step that can't be pre-packaged**: a Remote Site
   Setting authorizing a callout back to the org's own domain, which isn't knowable until the
   package is actually deployed to a specific org. See "Setting it up" below for the exact steps.
+
+  **Authentication is not `UserInfo.getSessionId()`** - confirmed directly, a session obtained that
+  way from Apex invoked by a Lightning component is frequently not valid for REST/Tooling API use at
+  all (independent of org-level settings like API Allowlisting - there's no supported way to get an
+  API-capable session ID from Lightning). Instead, `InspectorNativeFieldCreator` renders a tiny
+  internal Visualforce page (`InspectorNativeSessionId`, just `{!$Api.Session_ID}`) and reads the
+  session ID back via `PageReference.getContent()` - the well-known, Salesforce-discouraged-but-
+  functional workaround for this exact gap, and the one deployable option that doesn't require
+  manually setting up a Connected App/Auth Provider/Named Credential (the officially-recommended but
+  much heavier alternative). Rendered once per deploy call, not once per field.
+
+  **Field Creator is disabled by default (see "Tab visibility" below) because this last piece is
+  still broken, unresolved despite several rounds of fixes.** The symptom: `deployFields`'s
+  `List<InspectorNativeFieldSpec>` parameter arrives in Apex as a list of the right length, every
+  element present, every property on every element `null` - despite the browser's actual outgoing
+  network request (verified directly in DevTools, not just client-side logging) being fully and
+  correctly populated. Three independent, individually well-motivated fixes were tried and each
+  had *zero* effect on the symptom:
+  1. Renamed the property from `apiName` to `fieldApiName`, in case it collided with a reserved key
+     in Lightning Data Service's own record-metadata format.
+  2. Extracted the spec type from a nested inner class of `InspectorNativeFieldCreator` into its
+     own top-level class (`InspectorNativeFieldSpec`) - Apex inner classes are confirmed unreliable
+     as `List<T>` *parameter* types for LWC-invoked methods in general (they work fine as *return*
+     types, which is why every other DTO in this app, all nested, still works), but this wasn't the
+     cause here either. `InspectorNativeFieldPermissionGrant` (the Permissions modal's grant type)
+     was pulled out the same way anyway, pre-emptively, since it's still a real, separate
+     platform quirk worth avoiding even though it didn't explain this bug.
+  3. Renamed the method itself (`deployFields` → the current `deployCustomFields`), in case a stale
+     server-side action-definition cache, keyed by class+method name, was the culprit.
+
+  None of it moved the needle. Given the raw request body is confirmably correct, the remaining
+  candidates are outside this codebase - something in this specific org's environment (a
+  proxy/VPN/security policy modifying the request in transit) or a deeper, unconfirmed platform
+  quirk specific to `List<T>` parameter deserialization. **This is genuinely unresolved** - if
+  you're picking this back up, the two diagnostics still wired in (a `console.log` of the outgoing
+  `fieldSpecs` in `inspectorNativeFieldCreator.js`, and `JSON.serialize(spec)` embedded in
+  `InspectorNativeFieldCreator`'s "missing required field data" error message) are there to compare
+  both ends of the same call again without having to re-add them.
 - **Permissions and Groups tab** - bulk-assign Permission Sets, Permission Set Groups, and Public
   Groups to a set of users in one operation. A 3-step inline flow (no modal): pick which Permission
   Sets/Permission Set Groups/Public Groups to assign from one searchable, type-filterable table;
@@ -169,6 +212,25 @@ there's no undo the way there is for a bad query or a bad record edit - so it's 
 permissions (see "Setting it up") with real care, not granting them as casually as the read-only
 ones.
 
+## Tab visibility
+
+Which tabs show up in the left-hand nav is controlled by **`Salesforce_Inspector_Native_Tab__mdt`**,
+a custom metadata type with one record per tab and a single `Is_Enabled__c` checkbox. `inspectorNativeApp`
+reads it via a plain GraphQL query (`Salesforce_Inspector_Native_Tab__mdt { DeveloperName
+Is_Enabled__c }`) on load - no Apex involved, same as everywhere else in this app that can avoid it.
+
+To show or hide a tab: Setup → Custom Metadata Types → **Salesforce Inspector Native Tab** → Manage
+Records → open the record for that tab → toggle **Is Enabled** → Save. Takes effect the next time
+the app loads - no redeploy needed. The app's own **Tab Settings** nav item (always shown,
+un-toggleable) links straight to the Custom Metadata Types list in Setup, so this doesn't have to
+be remembered as a separate bookmark.
+
+A tab whose record doesn't exist, or whose config fails to load for any reason, **defaults to
+visible** - a missing record or a failed read should never silently hide a feature nobody meant to
+hide. Custom metadata records ship with intentional values instead: every tab enabled except
+**Field Creator**, which ships disabled given its currently-unresolved deploy issue (see its own
+section above).
+
 ## Setting it up
 
 1. Deploy this package directory (see above) - this also deploys the bundled
@@ -194,18 +256,12 @@ ones.
      rights; assigning the Salesforce Inspector Native permission set to someone without them still
      lets them use Create Records/Query Records fine, but Field Creator will fail with a clear
      permission error.
-   - If your org has **API Allowlisting** turned on (Setup → API Access Control → "limit API access
-     to only allowlisted connected apps"), Field Creator's Tooling API callout will fail with
-     `This session is not valid for use with the REST API` - a session obtained via
-     `UserInfo.getSessionId()` from Lightning Experience isn't valid for REST/Tooling API calls
-     under that setting unless the calling context is allowlisted. The fix is the **"Use Any API
-     Client"** system permission - confirmed, the hard way, **not grantable through a deployed
-     Permission Set**: Metadata API rejects it (`Unknown user permission: UseAnyApiClient`) even
-     though the permission itself is real and assignable through the UI, apparently because it's
-     new enough that Metadata API support hasn't caught up yet. There's no package-level fix for
-     this - grant it manually: Setup → Users → Permission Sets (or the user's Profile) → System
-     Permissions → enable **"Use Any API Client"** → Save, for whichever user(s) actually hit this
-     error.
+   - Field Creator's Tooling API callout authenticates via a small internal Visualforce-based
+     session bridge rather than `UserInfo.getSessionId()` (see "What's in it" above for why) - no
+     extra system permission needed for this specifically, unlike an earlier version of this app
+     that relied on the running user separately holding "Use Any API Client" (that permission turned
+     out not to even be grantable through a deployed Permission Set, and isn't relevant to every
+     org anyway - it only matters if API Allowlisting is enabled, which isn't universal).
    - Permissions and Groups similarly needs the running user to hold **"Assign Permission Sets"**
      (for the Permission Set/Permission Set Group half) and **"Manage Public Groups"** (for the
      Public Group half) - again real Salesforce platform rules this permission set cannot grant or
@@ -231,7 +287,8 @@ ones.
 
 | Component | Role |
 |---|---|
-| `inspectorNativeApp` | Shell/tabset, exposed as the app's Custom Tab (`lightning__Tab`). Owns no feature state - each tab is self-contained. |
+| `inspectorNativeApp` | Shell, exposed as the app's Custom Tab (`lightning__Tab`) - vertical nav on the left, active tab's content on the right. Owns tab-visibility/selected-tab state (reads `Salesforce_Inspector_Native_Tab__mdt` via GraphQL); each tab's own content is still self-contained. See "Tab visibility" above. |
+| `Salesforce_Inspector_Native_Tab__mdt` (Custom Metadata Type) | One record per tab, `Is_Enabled__c` checkbox - controls what `inspectorNativeApp` shows. See "Tab visibility" above. |
 | `inspectorNativeCreateRecords` | Create Records tab content: the object combobox, the layout combobox (its own small `buildRecordTypeQuery`/`extractRecordTypes`-backed wire, reusing those pure functions from `inspectorNativeRecordEntryUtils`), and rendering `inspectorNativeRecordEntry` inline once both are chosen. |
 | `inspectorNativeQueryRecords` | Query Records tab content: the SOQL textarea, calling `InspectorNativeSoqlRunner` imperatively, truncating to this app's usual row cap, and rendering `inspectorNativeRecordEntry` in `queryMode` once results come back. |
 | `inspectorNativeFieldCreator` | Field Creator tab content: the object picker, the compact field table (add/remove/clone rows), client-side validation, calling `InspectorNativeFieldCreator` imperatively (results known immediately, no polling), then `InspectorNativeFieldPermissions.grantFieldPermissions` for any successfully-created field with permission grants configured. |
@@ -245,9 +302,12 @@ ones.
 | `InspectorNativeObjectPicker` (Apex) | Read-only, cacheable object list for the Create Records/Field Creator pickers. See "What's in it" above. |
 | `InspectorNativeSoqlRunner` (Apex) | Read-only SOQL execution for Query Records. See "What's in it" above. |
 | `InspectorNativeFieldCreator` (Apex) | Builds and POSTs a Tooling API `CustomField` payload per requested field, for Field Creator - writes to org schema, and the only Apex class in this app that performs an HTTP callout. See "What's in it" above (and the Remote Site Setting step in "Setting it up"). |
+| `InspectorNativeFieldSpec` (Apex) | One field to create - the parameter type for `InspectorNativeFieldCreator.deployFields`. A plain top-level DTO, not nested inside `InspectorNativeFieldCreator` - confirmed directly that Apex inner classes aren't reliable as `List<T>` *parameter* types for LWC-invoked methods (every property silently arrived null despite a correctly-formed client payload); inner classes work fine as *return* types, which is why every other DTO in this app still is one. No separate permission set entry needed - class access security only governs the entry-point method being invoked, not the shape of its parameters. |
+| `InspectorNativeSessionId` (Visualforce page) | Internal session-ID bridge for Field Creator's Tooling API callout - just renders `{!$Api.Session_ID}`, read back via `PageReference.getContent()`. Never navigated to directly. See "What's in it" above for why `UserInfo.getSessionId()` isn't used instead. |
 | `InspectorNativeFieldPermissions` (Apex) | Lists assignable permission sets and grants field-level Read/Edit access via plain SOQL/DML (no callout) - for the Permissions modal. See "What's in it" above. |
+| `InspectorNativeFieldPermissionGrant` (Apex) | One permission set's Read/Edit selection for a field - the parameter type for `InspectorNativeFieldPermissions.grantFieldPermissions`. Same top-level-not-nested reasoning as `InspectorNativeFieldSpec` above, applied proactively before it caused the same bug. |
 | `InspectorNativePermissionAssignment` (Apex) | Lists assignable Permission Sets/Groups/Public Groups, searches users, and performs the bulk assignment (with expiration-date updates on re-run) - for the Permissions and Groups tab. See "What's in it" above. |
 | `InspectorNativeOrgInfo` (Apex) | Read-only license usage and org limit reads - for the Limits and Licenses tab. See "What's in it" above. |
 | Custom Tab / Custom Application (`Salesforce_Inspector_Native`) | App Launcher entry point. |
-| Permission Set (`Salesforce_Inspector_Native`) | Grants the app, its tab, and all six Apex classes - deliberately no object/field permissions, see "Setting it up" above. |
+| Permission Set (`Salesforce_Inspector_Native`) | Grants the app, its tab, all six Apex classes, and access to the `InspectorNativeSessionId` Visualforce page - deliberately no object/field permissions, see "Setting it up" above. |
 | `inspectorNativeCsvUtils`, `inspectorNativeQueryBridge`, `inspectorNativeRecordEntryUtils`, `inspectorNativeSharedUtils`, `inspectorNativeMapping`, `inspectorNativeFormField` | Supporting bundles for the grid above: CSV parsing/mapping, the GraphQL query-to-Promise bridge, column/mutation-building utilities, shared toast/navigation/field-model helpers, the CSV-to-field mapping dialog, and the typed form-field renderer. Originally forked from the now-retired `multiRecordEntry` topic (see "Fully standalone" above) - self-contained now, not vendored from or kept in sync with anything outside this package. |

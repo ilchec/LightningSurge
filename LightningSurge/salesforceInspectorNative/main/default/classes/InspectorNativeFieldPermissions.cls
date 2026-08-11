@@ -4,6 +4,10 @@
  * the Tooling API - see that class's doc comment for why), both operations here are plain,
  * standard Apex: PermissionSet is a normal queryable object, and FieldPermissions is a normal
  * queryable/DML-insertable object too - no callout needed for either.
+ *
+ * The grant type (InspectorNativeFieldPermissionGrant) is its own top-level class, not nested in
+ * here - see that class's doc comment for why (Apex inner classes aren't reliable as List<T>
+ * parameter types for LWC-invoked methods).
  */
 public with sharing class InspectorNativeFieldPermissions {
     public class PermissionSetOption {
@@ -27,20 +31,11 @@ public with sharing class InspectorNativeFieldPermissions {
         return options;
     }
 
-    public class FieldPermissionGrant {
-        @AuraEnabled
-        public String permissionSetId;
-        @AuraEnabled
-        public Boolean readAccess;
-        @AuraEnabled
-        public Boolean editAccess;
-    }
-
     @AuraEnabled
-    public static void grantFieldPermissions(String objectApiName, String fieldApiName, List<FieldPermissionGrant> grants) {
+    public static void grantFieldPermissions(String objectApiName, String fieldApiName, List<InspectorNativeFieldPermissionGrant> grants) {
         String fullFieldName = objectApiName + '.' + fieldApiName;
         Set<Id> permissionSetIds = new Set<Id>();
-        for (FieldPermissionGrant grant : grants) {
+        for (InspectorNativeFieldPermissionGrant grant : grants) {
             if (String.isNotBlank(grant.permissionSetId)) {
                 permissionSetIds.add(grant.permissionSetId);
             }
@@ -59,7 +54,7 @@ public with sharing class InspectorNativeFieldPermissions {
         }
 
         List<FieldPermissions> toUpsert = new List<FieldPermissions>();
-        for (FieldPermissionGrant grant : grants) {
+        for (InspectorNativeFieldPermissionGrant grant : grants) {
             if (grant.readAccess != true && grant.editAccess != true) {
                 continue; // nothing checked for this permission set - leave any existing grant alone
             }

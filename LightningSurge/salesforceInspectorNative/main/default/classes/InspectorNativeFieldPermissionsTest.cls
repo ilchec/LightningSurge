@@ -19,7 +19,7 @@ private class InspectorNativeFieldPermissionsTest {
         PermissionSet permissionSet = new PermissionSet(Name = 'Test_Field_Perm_Set', Label = 'Test Field Perm Set');
         insert permissionSet;
 
-        InspectorNativeFieldPermissions.FieldPermissionGrant grant = new InspectorNativeFieldPermissions.FieldPermissionGrant();
+        InspectorNativeFieldPermissionGrant grant = new InspectorNativeFieldPermissionGrant();
         grant.permissionSetId = permissionSet.Id;
         grant.readAccess = true;
         grant.editAccess = true;
@@ -28,7 +28,7 @@ private class InspectorNativeFieldPermissionsTest {
         InspectorNativeFieldPermissions.grantFieldPermissions(
             'Account',
             'Test_Perm_Field__c',
-            new List<InspectorNativeFieldPermissions.FieldPermissionGrant>{ grant }
+            new List<InspectorNativeFieldPermissionGrant>{ grant }
         );
         Test.stopTest();
 
@@ -46,7 +46,7 @@ private class InspectorNativeFieldPermissionsTest {
         PermissionSet permissionSet = new PermissionSet(Name = 'Test_Field_Perm_Set2', Label = 'Test Field Perm Set 2');
         insert permissionSet;
 
-        InspectorNativeFieldPermissions.FieldPermissionGrant grant = new InspectorNativeFieldPermissions.FieldPermissionGrant();
+        InspectorNativeFieldPermissionGrant grant = new InspectorNativeFieldPermissionGrant();
         grant.permissionSetId = permissionSet.Id;
         grant.readAccess = false;
         grant.editAccess = true;
@@ -55,7 +55,7 @@ private class InspectorNativeFieldPermissionsTest {
         InspectorNativeFieldPermissions.grantFieldPermissions(
             'Account',
             'Test_Perm_Field2__c',
-            new List<InspectorNativeFieldPermissions.FieldPermissionGrant>{ grant }
+            new List<InspectorNativeFieldPermissionGrant>{ grant }
         );
         Test.stopTest();
 
@@ -73,7 +73,7 @@ private class InspectorNativeFieldPermissionsTest {
         PermissionSet permissionSet = new PermissionSet(Name = 'Test_Field_Perm_Set3', Label = 'Test Field Perm Set 3');
         insert permissionSet;
 
-        InspectorNativeFieldPermissions.FieldPermissionGrant grant = new InspectorNativeFieldPermissions.FieldPermissionGrant();
+        InspectorNativeFieldPermissionGrant grant = new InspectorNativeFieldPermissionGrant();
         grant.permissionSetId = permissionSet.Id;
         grant.readAccess = false;
         grant.editAccess = false;
@@ -82,7 +82,7 @@ private class InspectorNativeFieldPermissionsTest {
         InspectorNativeFieldPermissions.grantFieldPermissions(
             'Account',
             'Test_Perm_Field3__c',
-            new List<InspectorNativeFieldPermissions.FieldPermissionGrant>{ grant }
+            new List<InspectorNativeFieldPermissionGrant>{ grant }
         );
         Test.stopTest();
 

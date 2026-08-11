@@ -21,6 +21,19 @@
  * The callout is synchronous - each field's success/failure (with the real Tooling API error
  * message on failure) is known immediately, unlike the old Metadata.Operations.enqueueDeployment
  * design this replaced, which needed the UI to poll for completion.
+ *
+ * Authentication is NOT UserInfo.getSessionId() - confirmed the hard way, a session obtained that
+ * way from Apex invoked by a Lightning component is frequently not valid for REST/Tooling API use
+ * at all (independent of org-level settings like API Allowlisting; there is no supported way to
+ * obtain an API-capable session ID from Lightning). Instead this renders a tiny internal
+ * Visualforce page (InspectorNativeSessionId.page, just `{!$Api.Session_ID}`) and reads the session
+ * ID back via PageReference.getContent() - the well-known, if Salesforce-discouraged, workaround
+ * for exactly this gap. Cached per-transaction (getApiSessionId()) so it's only rendered once
+ * regardless of how many fields are being deployed in one call.
+ *
+ * The per-field spec type (InspectorNativeFieldSpec) is deliberately its own top-level class, not
+ * nested in here - see that class's own doc comment for why (Apex inner classes aren't reliable as
+ * List<T> parameter types for LWC-invoked methods, confirmed directly).
  */
 public with sharing class InspectorNativeFieldCreator {
     private static final String API_VERSION = '67.0';
@@ -30,37 +43,6 @@ public with sharing class InspectorNativeFieldCreator {
     // own rules, not an arbitrary restriction. Setting either on an ineligible type would just fail
     // the callout, so the eligibility check happens here rather than trusting every caller to know it.
     private static final Set<String> UNIQUE_EXTERNAL_ID_TYPES = new Set<String>{ 'Text', 'Number', 'Email' };
-
-    public class FieldSpec {
-        @AuraEnabled
-        public String objectApiName;
-        @AuraEnabled
-        public String label;
-        @AuraEnabled
-        public String apiName; // without the __c suffix - appended in buildFullName
-        @AuraEnabled
-        public String fieldType; // one of Text/LongTextArea/Checkbox/Number/Currency/Percent/Date/DateTime/Email/Phone/Url/Picklist
-        @AuraEnabled
-        public Integer length;
-        @AuraEnabled
-        public Integer precision;
-        @AuraEnabled
-        public Integer scale;
-        @AuraEnabled
-        public Integer visibleLines;
-        @AuraEnabled
-        public Boolean isRequired;
-        @AuraEnabled
-        public String description;
-        @AuraEnabled
-        public String helpText;
-        @AuraEnabled
-        public Boolean isUnique;
-        @AuraEnabled
-        public Boolean isExternalId;
-        @AuraEnabled
-        public List<String> picklistValues;
-    }
 
     public class FieldDeployResult {
         @AuraEnabled
@@ -72,22 +54,34 @@ public with sharing class InspectorNativeFieldCreator {
     }
 
     @AuraEnabled
-    public static List<FieldDeployResult> deployFields(List<FieldSpec> fieldSpecs) {
+    public static List<FieldDeployResult> deployCustomFields(List<InspectorNativeFieldSpec> fieldSpecs) {
         List<FieldDeployResult> results = new List<FieldDeployResult>();
-        for (FieldSpec spec : fieldSpecs) {
+        for (InspectorNativeFieldSpec spec : fieldSpecs) {
             results.add(deployOneField(spec));
         }
         return results;
     }
 
-    private static FieldDeployResult deployOneField(FieldSpec spec) {
+    private static FieldDeployResult deployOneField(InspectorNativeFieldSpec spec) {
         FieldDeployResult result = new FieldDeployResult();
-        result.apiName = spec.apiName + '__c';
+        result.apiName = (String.isNotBlank(spec.fieldApiName) ? spec.fieldApiName : '(missing API name)') + '__c';
+
+        // Caught here, before attempting a callout that would otherwise fail with a confusing
+        // Tooling API error - client-side validation should already prevent this, but this is the
+        // actual API boundary, so it's checked again rather than trusted blindly.
+        if (String.isBlank(spec.objectApiName) || String.isBlank(spec.fieldApiName) || String.isBlank(spec.label) || String.isBlank(spec.fieldType)) {
+            result.success = false;
+            // Temporary diagnostic (again) - the top-level-class fix didn't resolve this, so this
+            // needs to stay until root-caused for real. Shows exactly what Apex parsed the whole
+            // spec as.
+            result.message = 'Missing required field data - nothing was sent to Salesforce. Apex received: ' + JSON.serialize(spec);
+            return result;
+        }
 
         HttpRequest request = new HttpRequest();
         request.setEndpoint(URL.getOrgDomainUrl().toExternalForm() + '/services/data/v' + API_VERSION + '/tooling/sobjects/CustomField/');
         request.setMethod('POST');
-        request.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
+        request.setHeader('Authorization', 'Bearer ' + getApiSessionId());
         request.setHeader('Content-Type', 'application/json');
         request.setBody(JSON.serialize(buildPayload(spec)));
 
@@ -100,8 +94,20 @@ public with sharing class InspectorNativeFieldCreator {
         return result;
     }
 
+    // Cached per-transaction (deployCustomFields loops this per field, but the session only needs
+    // rendering once) - see the class doc comment for why this isn't UserInfo.getSessionId().
     @TestVisible
-    private static Map<String, Object> buildPayload(FieldSpec spec) {
+    private static String cachedApiSessionId;
+
+    private static String getApiSessionId() {
+        if (cachedApiSessionId == null) {
+            cachedApiSessionId = Page.InspectorNativeSessionId.getContent().toString().trim();
+        }
+        return cachedApiSessionId;
+    }
+
+    @TestVisible
+    private static Map<String, Object> buildPayload(InspectorNativeFieldSpec spec) {
         Map<String, Object> metadata = new Map<String, Object>();
         metadata.put('label', spec.label);
         metadata.put('type', spec.fieldType);
@@ -142,7 +148,7 @@ public with sharing class InspectorNativeFieldCreator {
         }
 
         Map<String, Object> payload = new Map<String, Object>();
-        payload.put('FullName', spec.objectApiName + '.' + spec.apiName + '__c');
+        payload.put('FullName', spec.objectApiName + '.' + spec.fieldApiName + '__c');
         payload.put('Metadata', metadata);
         return payload;
     }

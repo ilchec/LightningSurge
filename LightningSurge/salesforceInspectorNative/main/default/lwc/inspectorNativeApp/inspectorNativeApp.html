@@ -1,19 +1,42 @@
 <template>
-  <lightning-tabset variant="scoped">
-    <lightning-tab label="Create Records">
-      <c-inspector-native-create-records></c-inspector-native-create-records>
-    </lightning-tab>
-    <lightning-tab label="Query Records">
-      <c-inspector-native-query-records></c-inspector-native-query-records>
-    </lightning-tab>
-    <lightning-tab label="Field Creator">
-      <c-inspector-native-field-creator></c-inspector-native-field-creator>
-    </lightning-tab>
-    <lightning-tab label="Permissions and Groups">
-      <c-inspector-native-permissions-groups></c-inspector-native-permissions-groups>
-    </lightning-tab>
-    <lightning-tab label="Limits and Licenses">
-      <c-inspector-native-limits-and-licenses></c-inspector-native-limits-and-licenses>
-    </lightning-tab>
-  </lightning-tabset>
+  <div class="app-layout">
+    <div class="nav-column">
+      <lightning-vertical-navigation selected-item={selectedTab} onselect={handleSelect}>
+        <lightning-vertical-navigation-section label="Salesforce Inspector Native">
+          <template for:each={visibleNavItems} for:item="item">
+            <lightning-vertical-navigation-item key={item.name} label={item.label} name={item.name}></lightning-vertical-navigation-item>
+          </template>
+        </lightning-vertical-navigation-section>
+        <lightning-vertical-navigation-section label="Admin">
+          <lightning-vertical-navigation-item label="Tab Settings" name="settings"></lightning-vertical-navigation-item>
+        </lightning-vertical-navigation-section>
+      </lightning-vertical-navigation>
+    </div>
+
+    <div class="content-column">
+      <lightning-spinner lwc:if={isLoadingConfig} alternative-text="Loading tab configuration" size="medium"></lightning-spinner>
+
+      <div lwc:if={configErrorText} class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-bottom_medium" role="alert">
+        <span>{configErrorText}</span>
+      </div>
+
+      <c-inspector-native-create-records lwc:if={isCreateRecordsActive}></c-inspector-native-create-records>
+      <c-inspector-native-query-records lwc:if={isQueryRecordsActive}></c-inspector-native-query-records>
+      <c-inspector-native-field-creator lwc:if={isFieldCreatorActive}></c-inspector-native-field-creator>
+      <c-inspector-native-permissions-groups lwc:if={isPermissionsGroupsActive}></c-inspector-native-permissions-groups>
+      <c-inspector-native-limits-and-licenses lwc:if={isLimitsLicensesActive}></c-inspector-native-limits-and-licenses>
+
+      <template lwc:if={isSettingsActive}>
+        <div class="slds-p-around_medium">
+          <h2 class="slds-text-heading_medium slds-m-bottom_small">Tab Settings</h2>
+          <p class="slds-m-bottom_medium">
+            Which tabs are shown on the left is controlled by the <strong>Salesforce Inspector Native Tab</strong>
+            custom metadata type - one record per tab, with an "Is Enabled" checkbox. Edit records there to show
+            or hide a tab; changes take effect the next time this app loads, no redeploy needed.
+          </p>
+          <lightning-button variant="brand" label="Open in Setup" onclick={handleOpenTabSettings}></lightning-button>
+        </div>
+      </template>
+    </div>
+  </div>
 </template>

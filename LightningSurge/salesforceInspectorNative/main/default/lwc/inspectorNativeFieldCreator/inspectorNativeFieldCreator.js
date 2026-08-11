@@ -1,5 +1,5 @@
 import grantFieldPermissions from '@salesforce/apex/InspectorNativeFieldPermissions.grantFieldPermissions';
-import deployFields from '@salesforce/apex/InspectorNativeFieldCreator.deployFields';
+import deployCustomFields from '@salesforce/apex/InspectorNativeFieldCreator.deployCustomFields';
 import getCreatableObjects from '@salesforce/apex/InspectorNativeObjectPicker.getCreatableObjects';
 import InspectorNativeFieldOptions from 'c/inspectorNativeFieldOptions';
 import InspectorNativeFieldPermissions from 'c/inspectorNativeFieldPermissions';
@@ -70,7 +70,7 @@ function getOptionFlagsForType(fieldType) {
  *
  * Deployment is a synchronous Tooling API callout per field (see the Apex class's own doc comment
  * for why that's the mechanism, not the built-in Metadata Apex namespace) - each field's success/
- * failure, with the real error message on failure, is known immediately from deployFields()'s own
+ * failure, with the real error message on failure, is known immediately from deployCustomFields()'s own
  * return value. No polling needed.
  *
  * Row-level detail (type-specific options, permission grants) lives behind the Options/Permissions
@@ -289,7 +289,10 @@ export default class InspectorNativeFieldCreator extends LightningElement {
     return {
       objectApiName: this._selectedObjectApiName,
       label: row.label.trim(),
-      apiName: row.apiName.trim(),
+      // Matches InspectorNativeFieldSpec.fieldApiName - see that class's own doc comment for why
+      // this whole spec shape lives in its own top-level Apex class rather than nested inside
+      // InspectorNativeFieldCreator.
+      fieldApiName: row.apiName.trim(),
       fieldType: row.fieldType,
       length: LENGTH_TYPES.has(row.fieldType) ? row.length : null,
       precision: PRECISION_SCALE_TYPES.has(row.fieldType) ? row.precision : null,
@@ -324,11 +327,16 @@ export default class InspectorNativeFieldCreator extends LightningElement {
     this._deployResults = undefined;
     const rowsBeingDeployed = this._rows;
     const fieldSpecs = rowsBeingDeployed.map((row) => this.buildFieldSpec(row));
+    // Temporary diagnostic - remove once root-caused. Compare this against what the Apex-side
+    // error message reports it received (also temporarily restored) - client and server should
+    // show the same values.
+    // eslint-disable-next-line no-console
+    console.log('[InspectorNativeFieldCreator] Deploying fieldSpecs:\n' + JSON.stringify(fieldSpecs, null, 2));
     try {
       // One Tooling API callout per field, each with its own immediate success/failure and (on
       // failure) the real error message - see the Apex class's doc comment for why this replaced
       // the original polling design.
-      const results = await deployFields({ fieldSpecs });
+      const results = await deployCustomFields({ fieldSpecs });
       this._deployResults = await this.applyPermissionGrants(results, rowsBeingDeployed);
     } catch (error) {
       this.deployErrorText = error?.body?.message ?? error?.message ?? 'Unknown error deploying fields';

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>Salesforce Inspector Native Tab</label>
+    <pluralLabel>Salesforce Inspector Native Tabs</pluralLabel>
+    <visibility>Public</visibility>
+    <description>Controls which tabs the Salesforce Inspector Native app shows - one record per tab, toggled via Is_Enabled__c. Edit records here (Setup - Custom Metadata Types - Salesforce Inspector Native Tab - Manage Records) to show or hide a tab; no redeploy needed.</description>
+</CustomObject>

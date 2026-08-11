@@ -30,6 +30,10 @@
         <apexClass>InspectorNativeOrgInfo</apexClass>
         <enabled>true</enabled>
     </classAccesses>
+    <pageAccesses>
+        <apexPage>InspectorNativeSessionId</apexPage>
+        <enabled>true</enabled>
+    </pageAccesses>
     <tabSettings>
         <tab>Salesforce_Inspector_Native</tab>
         <visibility>Visible</visibility>

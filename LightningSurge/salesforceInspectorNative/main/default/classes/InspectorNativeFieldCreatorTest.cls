@@ -1,7 +1,7 @@
 @IsTest
 private class InspectorNativeFieldCreatorTest {
     // buildPayload is @TestVisible and asserted on directly for the type-specific mapping logic
-    // (the interesting part); deployFields/the actual callout is exercised separately via
+    // (the interesting part); deployCustomFields/the actual callout is exercised separately via
     // HttpCalloutMock, since that's the standard, supported way to test Apex HTTP callouts without
     // a real network call.
 
@@ -23,19 +23,27 @@ private class InspectorNativeFieldCreatorTest {
         }
     }
 
+    // Bypasses the real Visualforce session-id bridge (Page.InspectorNativeSessionId.getContent())
+    // for tests - cachedApiSessionId is @TestVisible specifically so tests don't depend on
+    // $Api.Session_ID's behavior in a test context, which isn't guaranteed to match production.
+    private static void stubApiSessionId() {
+        InspectorNativeFieldCreator.cachedApiSessionId = 'test-session-id';
+    }
+
     @IsTest
     static void deploysFieldsSuccessfullyWhenTheCalloutSucceeds() {
+        stubApiSessionId();
         Test.setMock(HttpCalloutMock.class, new SuccessMock());
-        InspectorNativeFieldCreator.FieldSpec spec = new InspectorNativeFieldCreator.FieldSpec();
+        InspectorNativeFieldSpec spec = new InspectorNativeFieldSpec();
         spec.objectApiName = 'Account';
-        spec.apiName = 'My_Field';
+        spec.fieldApiName = 'My_Field';
         spec.label = 'My Field';
         spec.fieldType = 'Text';
         spec.length = 100;
 
         Test.startTest();
-        List<InspectorNativeFieldCreator.FieldDeployResult> results = InspectorNativeFieldCreator.deployFields(
-            new List<InspectorNativeFieldCreator.FieldSpec>{ spec }
+        List<InspectorNativeFieldCreator.FieldDeployResult> results = InspectorNativeFieldCreator.deployCustomFields(
+            new List<InspectorNativeFieldSpec>{ spec }
         );
         Test.stopTest();
 
@@ -46,17 +54,18 @@ private class InspectorNativeFieldCreatorTest {
 
     @IsTest
     static void reportsTheRealErrorMessageWhenTheCalloutFails() {
+        stubApiSessionId();
         Test.setMock(HttpCalloutMock.class, new FailureMock());
-        InspectorNativeFieldCreator.FieldSpec spec = new InspectorNativeFieldCreator.FieldSpec();
+        InspectorNativeFieldSpec spec = new InspectorNativeFieldSpec();
         spec.objectApiName = 'Account';
-        spec.apiName = 'Bad_Field';
+        spec.fieldApiName = 'Bad_Field';
         spec.label = 'Bad Field';
         spec.fieldType = 'Text';
         spec.length = 100;
 
         Test.startTest();
-        List<InspectorNativeFieldCreator.FieldDeployResult> results = InspectorNativeFieldCreator.deployFields(
-            new List<InspectorNativeFieldCreator.FieldSpec>{ spec }
+        List<InspectorNativeFieldCreator.FieldDeployResult> results = InspectorNativeFieldCreator.deployCustomFields(
+            new List<InspectorNativeFieldSpec>{ spec }
         );
         Test.stopTest();
 
@@ -65,10 +74,33 @@ private class InspectorNativeFieldCreatorTest {
     }
 
     @IsTest
-    static void buildsAPayloadWithFullNameAndBasicMetadataForATextField() {
-        InspectorNativeFieldCreator.FieldSpec spec = new InspectorNativeFieldCreator.FieldSpec();
+    static void reportsAClearErrorInsteadOfAttemptingACalloutWhenRequiredFieldDataIsMissing() {
+        stubApiSessionId();
+        // No mock set - if this incorrectly attempted a callout, the test would fail with
+        // System.CalloutException: Callout not allowed, proving the guard actually short-circuits.
+        InspectorNativeFieldSpec spec = new InspectorNativeFieldSpec();
         spec.objectApiName = 'Account';
-        spec.apiName = 'My_Field';
+        spec.fieldApiName = null;
+        spec.label = 'My Field';
+        spec.fieldType = 'Text';
+
+        Test.startTest();
+        List<InspectorNativeFieldCreator.FieldDeployResult> results = InspectorNativeFieldCreator.deployCustomFields(
+            new List<InspectorNativeFieldSpec>{ spec }
+        );
+        Test.stopTest();
+
+        System.assertEquals(1, results.size());
+        System.assertEquals(false, results[0].success);
+        System.assertEquals('(missing API name)__c', results[0].apiName);
+        System.assert(results[0].message.contains('Missing required field data'), 'Actual message: ' + results[0].message);
+    }
+
+    @IsTest
+    static void buildsAPayloadWithFullNameAndBasicMetadataForATextField() {
+        InspectorNativeFieldSpec spec = new InspectorNativeFieldSpec();
+        spec.objectApiName = 'Account';
+        spec.fieldApiName = 'My_Field';
         spec.label = 'My Field';
         spec.fieldType = 'Text';
         spec.length = 100;
@@ -86,9 +118,9 @@ private class InspectorNativeFieldCreatorTest {
 
     @IsTest
     static void buildsAPayloadWithPrecisionAndScaleForANumberField() {
-        InspectorNativeFieldCreator.FieldSpec spec = new InspectorNativeFieldCreator.FieldSpec();
+        InspectorNativeFieldSpec spec = new InspectorNativeFieldSpec();
         spec.objectApiName = 'Account';
-        spec.apiName = 'My_Number';
+        spec.fieldApiName = 'My_Number';
         spec.label = 'My Number';
         spec.fieldType = 'Number';
         spec.precision = 18;
@@ -103,9 +135,9 @@ private class InspectorNativeFieldCreatorTest {
 
     @IsTest
     static void buildsALongTextAreaFieldWithLengthAndDefaultVisibleLines() {
-        InspectorNativeFieldCreator.FieldSpec spec = new InspectorNativeFieldCreator.FieldSpec();
+        InspectorNativeFieldSpec spec = new InspectorNativeFieldSpec();
         spec.objectApiName = 'Account';
-        spec.apiName = 'My_Notes';
+        spec.fieldApiName = 'My_Notes';
         spec.label = 'My Notes';
         spec.fieldType = 'LongTextArea';
         spec.length = 32768;
@@ -119,9 +151,9 @@ private class InspectorNativeFieldCreatorTest {
 
     @IsTest
     static void checkboxFieldsIgnoreRequiredAndGetADefaultValue() {
-        InspectorNativeFieldCreator.FieldSpec spec = new InspectorNativeFieldCreator.FieldSpec();
+        InspectorNativeFieldSpec spec = new InspectorNativeFieldSpec();
         spec.objectApiName = 'Account';
-        spec.apiName = 'My_Checkbox';
+        spec.fieldApiName = 'My_Checkbox';
         spec.label = 'My Checkbox';
         spec.fieldType = 'Checkbox';
         spec.isRequired = true; // should be ignored - a Checkbox can't be required
@@ -135,9 +167,9 @@ private class InspectorNativeFieldCreatorTest {
 
     @IsTest
     static void buildsAPicklistFieldWithPicklistValuesSkippingBlankOnes() {
-        InspectorNativeFieldCreator.FieldSpec spec = new InspectorNativeFieldCreator.FieldSpec();
+        InspectorNativeFieldSpec spec = new InspectorNativeFieldSpec();
         spec.objectApiName = 'Account';
-        spec.apiName = 'My_Picklist';
+        spec.fieldApiName = 'My_Picklist';
         spec.label = 'My Picklist';
         spec.fieldType = 'Picklist';
         spec.picklistValues = new List<String>{ 'Open', '', 'Closed', null };
@@ -154,9 +186,9 @@ private class InspectorNativeFieldCreatorTest {
 
     @IsTest
     static void plainTypesLikeDateGetNoTypeSpecificFields() {
-        InspectorNativeFieldCreator.FieldSpec spec = new InspectorNativeFieldCreator.FieldSpec();
+        InspectorNativeFieldSpec spec = new InspectorNativeFieldSpec();
         spec.objectApiName = 'Account';
-        spec.apiName = 'My_Date';
+        spec.fieldApiName = 'My_Date';
         spec.label = 'My Date';
         spec.fieldType = 'Date';
 
@@ -170,9 +202,9 @@ private class InspectorNativeFieldCreatorTest {
 
     @IsTest
     static void includesHelpTextWhenGiven() {
-        InspectorNativeFieldCreator.FieldSpec spec = new InspectorNativeFieldCreator.FieldSpec();
+        InspectorNativeFieldSpec spec = new InspectorNativeFieldSpec();
         spec.objectApiName = 'Account';
-        spec.apiName = 'My_Field';
+        spec.fieldApiName = 'My_Field';
         spec.label = 'My Field';
         spec.fieldType = 'Text';
         spec.length = 100;
@@ -186,9 +218,9 @@ private class InspectorNativeFieldCreatorTest {
 
     @IsTest
     static void allowsUniqueAndExternalIdOnlyOnEligibleTypes() {
-        InspectorNativeFieldCreator.FieldSpec textSpec = new InspectorNativeFieldCreator.FieldSpec();
+        InspectorNativeFieldSpec textSpec = new InspectorNativeFieldSpec();
         textSpec.objectApiName = 'Account';
-        textSpec.apiName = 'My_Field';
+        textSpec.fieldApiName = 'My_Field';
         textSpec.label = 'My Field';
         textSpec.fieldType = 'Text';
         textSpec.length = 100;
@@ -199,9 +231,9 @@ private class InspectorNativeFieldCreatorTest {
         System.assertEquals(true, textMetadata.get('unique'));
         System.assertEquals(true, textMetadata.get('externalId'));
 
-        InspectorNativeFieldCreator.FieldSpec dateSpec = new InspectorNativeFieldCreator.FieldSpec();
+        InspectorNativeFieldSpec dateSpec = new InspectorNativeFieldSpec();
         dateSpec.objectApiName = 'Account';
-        dateSpec.apiName = 'My_Date';
+        dateSpec.fieldApiName = 'My_Date';
         dateSpec.label = 'My Date';
         dateSpec.fieldType = 'Date';
         dateSpec.isUnique = true;

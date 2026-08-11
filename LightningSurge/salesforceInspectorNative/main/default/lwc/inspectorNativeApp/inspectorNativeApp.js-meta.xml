@@ -3,7 +3,7 @@
     <apiVersion>67.0</apiVersion>
     <isExposed>true</isExposed>
     <masterLabel>Salesforce Inspector Native</masterLabel>
-    <description>Shell/tabset for the Salesforce Inspector Native app. Exposed as a Custom Tab.</description>
+    <description>Shell for the Salesforce Inspector Native app - vertical nav with tab visibility driven by Salesforce_Inspector_Native_Tab__mdt. Exposed as a Custom Tab.</description>
     <targets>
       <target>lightning__Tab</target>
     </targets>

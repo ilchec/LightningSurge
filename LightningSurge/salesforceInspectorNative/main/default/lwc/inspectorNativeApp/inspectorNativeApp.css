@@ -1,0 +1,15 @@
+.app-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.nav-column {
+  width: 15rem;
+  flex-shrink: 0;
+}
+
+.content-column {
+  flex: 1;
+  min-width: 0;
+}
