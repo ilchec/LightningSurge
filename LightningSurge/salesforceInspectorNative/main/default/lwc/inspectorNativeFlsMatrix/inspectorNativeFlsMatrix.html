@@ -1,0 +1,123 @@
+<template>
+  <div class="slds-p-around_medium page-container">
+    <div class="selector-row">
+      <div class="selector-item">
+        <lightning-combobox
+          label="Object"
+          placeholder="Select an object..."
+          options={objectOptions}
+          value={selectedObjectApiName}
+          disabled={isLoadingObjects}
+          onchange={handleObjectSelect}
+        ></lightning-combobox>
+      </div>
+    </div>
+
+    <div lwc:if={errorText} class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-top_medium" role="alert">
+      <span>{errorText}</span>
+    </div>
+
+    <lightning-spinner lwc:if={isLoadingObjects} alternative-text="Loading objects" size="medium"></lightning-spinner>
+    <lightning-spinner lwc:if={isLoadingMatrix} alternative-text="Loading field permissions" size="medium"></lightning-spinner>
+
+    <template lwc:if={hasMatrixLoaded}>
+      <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-top_medium slds-m-bottom_small">
+        <h3 class="slds-text-heading_small">{matrixSummaryLabel}</h3>
+        <div>
+          <lightning-button label={permissionSetPickerToggleLabel} onclick={handleTogglePermissionSetPicker} class="slds-m-right_x-small"></lightning-button>
+          <lightning-button label="Discard Changes" onclick={handleDiscardClick} disabled={isDiscardDisabled} class="slds-m-right_x-small"></lightning-button>
+          <lightning-button variant="brand" label={saveButtonLabel} onclick={handleSaveClick} disabled={isSaveDisabled}></lightning-button>
+        </div>
+      </div>
+
+      <div lwc:if={isPermissionSetPickerOpen} class="permission-set-picker slds-m-bottom_medium">
+        <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-bottom_x-small">
+          <span class="slds-text-body_small slds-text-color_weak">Choose which permission sets show as columns below.</span>
+          <div>
+            <lightning-button label="Select All" onclick={handleSelectAllPermissionSets} class="slds-m-right_x-small"></lightning-button>
+            <lightning-button label="Deselect All" onclick={handleDeselectAllPermissionSets}></lightning-button>
+          </div>
+        </div>
+        <lightning-input
+          type="search"
+          label="Filter permission sets"
+          variant="label-hidden"
+          placeholder="Filter by name..."
+          value={permissionSetFilterTerm}
+          onchange={handlePermissionSetFilterChange}
+          class="slds-m-bottom_x-small"
+        ></lightning-input>
+        <p lwc:if={hasNoMatchingPermissionSetOptions} class="slds-text-color_weak slds-text-body_small slds-m-bottom_x-small">
+          No permission sets match "{permissionSetFilterTerm}".
+        </p>
+        <lightning-dual-listbox
+          label="Permission Sets"
+          source-label="Hidden"
+          selected-label="Shown"
+          options={permissionSetPickerOptions}
+          value={selectedPermissionSetIds}
+          onchange={handlePermissionSetSelectionChange}
+        ></lightning-dual-listbox>
+      </div>
+
+      <p lwc:if={hasNoPermissionSets} class="slds-text-color_weak slds-p-around_small">
+        No assignable permission sets found - create one in Setup first.
+      </p>
+      <p lwc:if={hasNoVisiblePermissionSets} class="slds-text-color_weak slds-p-around_small">
+        No permission sets selected - use "Select Permission Sets" above to choose which ones to show.
+      </p>
+
+      <div lwc:if={visiblePermissionSets.length} class="table-container">
+        <table class="slds-table slds-table_cell-buffer matrix-table">
+          <thead>
+            <tr class="slds-line-height_reset">
+              <th scope="col" class="matrix-field-col">Field</th>
+              <template for:each={visiblePermissionSets} for:item="permissionSet">
+                <th key={permissionSet.id} scope="col">
+                  <div class="slds-truncate" title={permissionSet.label}>{permissionSet.label}</div>
+                </th>
+              </template>
+            </tr>
+          </thead>
+          <tbody>
+            <template for:each={matrixRows} for:item="row">
+              <tr key={row.fieldApiName}>
+                <th scope="row" class="matrix-field-col">
+                  <div class="slds-truncate" title={row.fieldLabel}>{row.fieldLabel}</div>
+                </th>
+                <template for:each={row.cells} for:item="cell">
+                  <td key={cell.key} class={cell.cellClass}>
+                    <span class="cell-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={cell.readAccess}
+                        data-field-api-name={cell.fieldApiName}
+                        data-permission-set-id={cell.permissionSetId}
+                        data-field="read"
+                        onchange={handleCellToggle}
+                        aria-label="Read"
+                      />
+                      <span class="cell-checkbox-label">R</span>
+                    </span>
+                    <span class="cell-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={cell.editAccess}
+                        data-field-api-name={cell.fieldApiName}
+                        data-permission-set-id={cell.permissionSetId}
+                        data-field="edit"
+                        onchange={handleCellToggle}
+                        aria-label="Edit"
+                      />
+                      <span class="cell-checkbox-label">E</span>
+                    </span>
+                  </td>
+                </template>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </template>
+  </div>
+</template>

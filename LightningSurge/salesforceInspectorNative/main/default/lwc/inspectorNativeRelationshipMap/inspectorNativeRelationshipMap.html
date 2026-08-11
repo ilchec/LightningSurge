@@ -1,0 +1,68 @@
+<template>
+  <div class="slds-p-around_medium page-container">
+    <div class="selector-row">
+      <div class="selector-item">
+        <lightning-combobox
+          label="Object"
+          placeholder="Select an object..."
+          options={objectOptions}
+          value={selectedObjectApiName}
+          disabled={isLoadingObjects}
+          onchange={handleObjectSelect}
+        ></lightning-combobox>
+      </div>
+    </div>
+
+    <div lwc:if={errorText} class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-top_medium" role="alert">
+      <span>{errorText}</span>
+    </div>
+
+    <lightning-spinner lwc:if={isLoadingObjects} alternative-text="Loading objects" size="medium"></lightning-spinner>
+    <lightning-spinner lwc:if={isLoadingSchema} alternative-text="Loading relationships" size="medium"></lightning-spinner>
+
+    <template lwc:if={hasSchemaLoaded}>
+      <div class="map-container slds-m-top_medium">
+        <div class="map-column">
+          <h3 class="slds-text-heading_small slds-m-bottom_small">Looks Up To</h3>
+          <p lwc:if={hasNoParents} class="slds-text-color_weak slds-text-body_small">No lookup/master-detail fields.</p>
+          <div lwc:if={parentRows.length} class="map-node-list">
+            <template for:each={parentRows} for:item="row">
+              <div key={row.key} class="map-node" data-object={row.targetApiName} onclick={handleNodeClick}>
+                <div class="map-node-title">{row.targetApiName}</div>
+                <div class="map-node-detail">via {row.fieldLabel}</div>
+              </div>
+            </template>
+            <button lwc:if={hasHiddenParents} type="button" class="slds-button map-show-more" onclick={handleShowMoreParents}>
+              Show More ({parentHiddenCount} remaining)
+            </button>
+          </div>
+        </div>
+
+        <div class="map-center-column">
+          <lightning-icon icon-name="utility:right" size="small" class="map-arrow"></lightning-icon>
+          <div class="map-node map-node_center">
+            <div class="map-node-title">{objectLabel}</div>
+            <div class="map-node-detail">{selectedObjectApiName}</div>
+          </div>
+          <lightning-icon icon-name="utility:right" size="small" class="map-arrow"></lightning-icon>
+        </div>
+
+        <div class="map-column">
+          <h3 class="slds-text-heading_small slds-m-bottom_small">Looked Up To By</h3>
+          <p lwc:if={hasNoChildren} class="slds-text-color_weak slds-text-body_small">No child relationships.</p>
+          <div lwc:if={childRows.length} class="map-node-list">
+            <template for:each={childRows} for:item="row">
+              <div key={row.key} class="map-node" data-object={row.childObjectApiName} onclick={handleNodeClick}>
+                <div class="map-node-title">{row.childObjectApiName}</div>
+                <div class="map-node-detail">via {row.relationshipName}</div>
+              </div>
+            </template>
+            <button lwc:if={hasHiddenChildren} type="button" class="slds-button map-show-more" onclick={handleShowMoreChildren}>
+              Show More ({childHiddenCount} remaining)
+            </button>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+</template>

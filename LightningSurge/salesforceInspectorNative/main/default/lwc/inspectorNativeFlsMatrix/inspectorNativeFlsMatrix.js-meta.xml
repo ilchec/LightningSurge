@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>67.0</apiVersion>
+    <isExposed>false</isExposed>
+    <description>FLS Matrix tab content: every FLS-eligible field crossed with every assignable permission set, Read/Edit checkboxes, bulk save (unchecking actually revokes, unlike Field Creator's additive-only Permissions modal).</description>
+</LightningComponentBundle>

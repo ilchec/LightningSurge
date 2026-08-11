@@ -2,11 +2,13 @@
   <div class="app-layout">
     <div class="nav-column">
       <lightning-vertical-navigation selected-item={selectedTab} onselect={handleSelect}>
-        <lightning-vertical-navigation-section label="Salesforce Inspector Native">
-          <template for:each={visibleNavItems} for:item="item">
-            <lightning-vertical-navigation-item key={item.name} label={item.label} name={item.name}></lightning-vertical-navigation-item>
-          </template>
-        </lightning-vertical-navigation-section>
+        <template for:each={navSections} for:item="section">
+          <lightning-vertical-navigation-section key={section.category} label={section.category}>
+            <template for:each={section.items} for:item="item">
+              <lightning-vertical-navigation-item key={item.name} label={item.label} name={item.name}></lightning-vertical-navigation-item>
+            </template>
+          </lightning-vertical-navigation-section>
+        </template>
         <lightning-vertical-navigation-section label="Admin">
           <lightning-vertical-navigation-item label="Tab Settings" name="settings"></lightning-vertical-navigation-item>
         </lightning-vertical-navigation-section>
@@ -25,6 +27,11 @@
       <c-inspector-native-field-creator lwc:if={isFieldCreatorActive}></c-inspector-native-field-creator>
       <c-inspector-native-permissions-groups lwc:if={isPermissionsGroupsActive}></c-inspector-native-permissions-groups>
       <c-inspector-native-limits-and-licenses lwc:if={isLimitsLicensesActive}></c-inspector-native-limits-and-licenses>
+      <c-inspector-native-schema-explorer lwc:if={isSchemaExplorerActive}></c-inspector-native-schema-explorer>
+      <c-inspector-native-relationship-map lwc:if={isRelationshipMapActive}></c-inspector-native-relationship-map>
+      <c-inspector-native-data-export lwc:if={isDataExportActive}></c-inspector-native-data-export>
+      <c-inspector-native-fls-matrix lwc:if={isFlsMatrixActive}></c-inspector-native-fls-matrix>
+      <c-inspector-native-org-chart lwc:if={isOrgChartActive}></c-inspector-native-org-chart>
 
       <template lwc:if={isSettingsActive}>
         <div class="slds-p-around_medium">

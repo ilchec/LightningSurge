@@ -1,0 +1,32 @@
+.page-container {
+  max-width: 100%;
+}
+
+.selector-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.selector-item {
+  width: 20rem;
+  max-width: 100%;
+}
+
+/* Same reasoning as every other data table added this session - a horizontal-scroll wrapper
+   contains a wide table on a narrow screen instead of letting it spill past the page. This table
+   has no popup/dropdown cells (unlike the related list's row action menu), so there's no
+   overflow-clipping tradeoff to weigh here. */
+.table-container {
+  overflow-x: auto;
+}
+
+.schema-table th,
+.schema-table td {
+  white-space: nowrap;
+}
+
+.edit-col {
+  width: 2.5rem;
+}

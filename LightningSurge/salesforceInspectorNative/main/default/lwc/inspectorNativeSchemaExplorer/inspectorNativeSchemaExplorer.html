@@ -1,0 +1,84 @@
+<template>
+  <div class="slds-p-around_medium page-container">
+    <div class="selector-row">
+      <div class="selector-item">
+        <lightning-combobox
+          label="Object"
+          placeholder="Select an object..."
+          options={objectOptions}
+          value={selectedObjectApiName}
+          disabled={isLoadingObjects}
+          onchange={handleObjectSelect}
+        ></lightning-combobox>
+      </div>
+      <div lwc:if={hasSelectedObject} class="selector-item">
+        <lightning-input
+          type="search"
+          label="Search fields"
+          placeholder="Filter by label or API name..."
+          value={searchTerm}
+          onchange={handleSearchChange}
+        ></lightning-input>
+      </div>
+    </div>
+
+    <div lwc:if={errorText} class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-top_medium" role="alert">
+      <span>{errorText}</span>
+    </div>
+
+    <lightning-spinner lwc:if={isLoadingObjects} alternative-text="Loading objects" size="medium"></lightning-spinner>
+    <lightning-spinner lwc:if={isLoadingSchema} alternative-text="Loading schema" size="medium"></lightning-spinner>
+
+    <template lwc:if={hasSchemaLoaded}>
+      <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-top_medium slds-m-bottom_small">
+        <h3 class="slds-text-heading_small">{objectLabel} - {fieldCountLabel}</h3>
+      </div>
+
+      <p lwc:if={hasNoMatchingFields} class="slds-text-color_weak slds-p-around_small">No fields match "{searchTerm}".</p>
+
+      <div lwc:if={fieldRows.length} class="table-container">
+        <table class="slds-table slds-table_cell-buffer schema-table">
+          <thead>
+            <tr class="slds-line-height_reset">
+              <th scope="col" class="edit-col"><span class="slds-assistive-text">Edit</span></th>
+              <th scope="col">Label</th>
+              <th scope="col">API Name</th>
+              <th scope="col">Type</th>
+              <th scope="col">References</th>
+              <th scope="col">Required</th>
+              <th scope="col">Unique</th>
+              <th scope="col">External ID</th>
+              <th scope="col">Createable</th>
+              <th scope="col">Updateable</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template for:each={fieldRows} for:item="row">
+              <tr key={row.apiName}>
+                <td class="edit-col">
+                  <lightning-button-icon
+                    icon-name="utility:edit"
+                    alternative-text="Edit in Setup"
+                    variant="border-filled"
+                    size="x-small"
+                    data-field-api-name={row.apiName}
+                    onclick={handleEditFieldClick}
+                  ></lightning-button-icon>
+                </td>
+                <td>{row.label}</td>
+                <td>{row.apiName}</td>
+                <td>{row.dataType}</td>
+                <td>{row.referenceTo}</td>
+                <td>{row.requiredText}</td>
+                <td>{row.uniqueText}</td>
+                <td>{row.externalIdText}</td>
+                <td>{row.createableText}</td>
+                <td>{row.updateableText}</td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </template>
+  </div>
+</template>

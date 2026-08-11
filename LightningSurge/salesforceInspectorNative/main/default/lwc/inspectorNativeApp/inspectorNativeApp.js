@@ -5,13 +5,31 @@ import { LightningElement, wire } from 'lwc';
 const SETTINGS_NAV_NAME = 'settings';
 
 // One entry per toggleable tab - `developerName` matches a Salesforce_Inspector_Native_Tab__mdt
-// record's DeveloperName, `name` is this component's own internal nav/content-switch key.
+// record's DeveloperName, `name` is this component's own internal nav/content-switch key,
+// `category` groups tabs into their own lightning-vertical-navigation-section (see navSections) -
+// a purely client-side, hardcoded grouping, not admin-configurable like Is_Enabled__c is, since the
+// ask here was "organize the nav logically", not "let admins reorganize it themselves".
+//
+// Schema Explorer, Relationship Map, Data Export, and Org Chart are pure UI API/GraphQL, no new
+// Apex; FLS Matrix adds one narrow, callout-free Apex exception (InspectorNativeFlsMatrix) in the
+// same low-risk category as InspectorNativeFieldPermissions - see salesforceInspectorNative/README.md.
+const CATEGORY_DATA = 'Data';
+const CATEGORY_SCHEMA = 'Schema';
+const CATEGORY_USERS_SECURITY = 'Users & Security';
+const CATEGORY_ORG_INFO = 'Org Info';
+const CATEGORY_ORDER = [CATEGORY_DATA, CATEGORY_SCHEMA, CATEGORY_USERS_SECURITY, CATEGORY_ORG_INFO];
+
 const TABS = [
-  { name: 'createRecords', label: 'Create Records', developerName: 'Create_Records' },
-  { name: 'queryRecords', label: 'Query Records', developerName: 'Query_Records' },
-  { name: 'fieldCreator', label: 'Field Creator', developerName: 'Field_Creator' },
-  { name: 'permissionsGroups', label: 'Permissions and Groups', developerName: 'Permissions_And_Groups' },
-  { name: 'limitsLicenses', label: 'Limits and Licenses', developerName: 'Limits_And_Licenses' }
+  { name: 'createRecords', label: 'Create Records', developerName: 'Create_Records', category: CATEGORY_DATA },
+  { name: 'queryRecords', label: 'Query Records', developerName: 'Query_Records', category: CATEGORY_DATA },
+  { name: 'dataExport', label: 'Data Export', developerName: 'Data_Export', category: CATEGORY_DATA },
+  { name: 'schemaExplorer', label: 'Schema Explorer', developerName: 'Schema_Explorer', category: CATEGORY_SCHEMA },
+  { name: 'relationshipMap', label: 'Relationship Map', developerName: 'Relationship_Map', category: CATEGORY_SCHEMA },
+  { name: 'fieldCreator', label: 'Field Creator', developerName: 'Field_Creator', category: CATEGORY_SCHEMA },
+  { name: 'permissionsGroups', label: 'Permissions and Groups', developerName: 'Permissions_And_Groups', category: CATEGORY_USERS_SECURITY },
+  { name: 'flsMatrix', label: 'FLS Matrix', developerName: 'Fls_Matrix', category: CATEGORY_USERS_SECURITY },
+  { name: 'orgChart', label: 'Org Chart', developerName: 'Org_Chart', category: CATEGORY_USERS_SECURITY },
+  { name: 'limitsLicenses', label: 'Limits and Licenses', developerName: 'Limits_And_Licenses', category: CATEGORY_ORG_INFO }
 ];
 
 const TAB_CONFIG_QUERY = gql`
@@ -37,8 +55,11 @@ const TAB_CONFIG_QUERY = gql`
 
 /**
  * Shell for the Salesforce Inspector Native app: a vertical nav on the left (not the previous
- * horizontal tabset - more room for tab labels as more tabs get added over time) and the active
- * tab's content on the right. Unlike the original stateless shell, this one does own state now -
+ * horizontal tabset - more room for tab labels as more tabs get added over time), grouped into
+ * Data / Schema / Users & Security / Org Info sections (see navSections) rather than one flat list -
+ * with ten tabs now spanning record data, object structure, and user/permission administration,
+ * a flat list had become a mixture that was hard to scan. And the active tab's content on the
+ * right. Unlike the original stateless shell, this one does own state now -
  * which tabs are enabled comes from Salesforce_Inspector_Native_Tab__mdt (one record per tab, a
  * plain Is_Enabled__c checkbox), read via a GraphQL query so toggling a tab is a Setup-only change,
  * no redeploy needed. A tab whose record doesn't exist yet, or whose config failed to load,
@@ -93,6 +114,16 @@ export default class InspectorNativeApp extends NavigationMixin(LightningElement
     return this.navItems.filter((item) => item.visible);
   }
 
+  // Groups visibleNavItems into one lightning-vertical-navigation-section per category, in
+  // CATEGORY_ORDER - a category with nothing currently visible in it (every tab in it disabled)
+  // doesn't render an empty section header.
+  get navSections() {
+    return CATEGORY_ORDER.map((category) => ({
+      category,
+      items: this.visibleNavItems.filter((item) => item.category === category)
+    })).filter((section) => section.items.length > 0);
+  }
+
   // Runs once config first loads (or fails to) - picks a sensible default tab rather than leaving
   // the content area blank, and moves off a tab that turned out to be disabled.
   ensureSelectedTabIsVisible() {
@@ -125,6 +156,26 @@ export default class InspectorNativeApp extends NavigationMixin(LightningElement
 
   get isLimitsLicensesActive() {
     return this.selectedTab === 'limitsLicenses';
+  }
+
+  get isSchemaExplorerActive() {
+    return this.selectedTab === 'schemaExplorer';
+  }
+
+  get isRelationshipMapActive() {
+    return this.selectedTab === 'relationshipMap';
+  }
+
+  get isDataExportActive() {
+    return this.selectedTab === 'dataExport';
+  }
+
+  get isFlsMatrixActive() {
+    return this.selectedTab === 'flsMatrix';
+  }
+
+  get isOrgChartActive() {
+    return this.selectedTab === 'orgChart';
   }
 
   get isSettingsActive() {

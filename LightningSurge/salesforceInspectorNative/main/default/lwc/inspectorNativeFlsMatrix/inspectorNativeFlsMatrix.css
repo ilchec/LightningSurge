@@ -1,0 +1,73 @@
+.page-container {
+  max-width: 100%;
+}
+
+.selector-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.selector-item {
+  width: 20rem;
+  max-width: 100%;
+}
+
+.permission-set-picker {
+  border: 1px solid var(--lwc-colorBorder, #dddbda);
+  border-radius: 0.25rem;
+  padding: 0.75rem;
+  background: var(--lwc-colorBackgroundAlt, #ffffff);
+}
+
+/* Both axes scroll, capped to a fixed viewport height - unlike the related list's own table, no
+   cell here ever opens a popup/dropdown that an overflow ancestor could clip (just plain
+   checkboxes), so there's no tradeoff to weigh in choosing this. */
+.table-container {
+  overflow: auto;
+  max-height: 32rem;
+}
+
+.matrix-table th,
+.matrix-table td {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.matrix-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f3f3f3;
+}
+
+.matrix-field-col {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--lwc-colorBackgroundAlt, #ffffff);
+  text-align: left;
+  min-width: 10rem;
+}
+
+thead .matrix-field-col {
+  z-index: 3;
+  background: #f3f3f3;
+}
+
+.matrix-cell_dirty {
+  background: var(--lwc-colorBackgroundHint, #fdf4e7);
+}
+
+.cell-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-right: 0.75rem;
+}
+
+.cell-checkbox-label {
+  font-size: 0.75rem;
+  color: var(--lwc-colorTextWeak, #706e6b);
+}

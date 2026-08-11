@@ -1,0 +1,67 @@
+<template>
+  <div class="slds-p-around_medium page-container">
+    <div class="selector-row">
+      <div class="selector-item search-item">
+        <lightning-input
+          type="search"
+          label="Jump to a user"
+          placeholder="Search by name..."
+          value={searchTerm}
+          onchange={handleSearchChange}
+        ></lightning-input>
+        <div lwc:if={hasSearchResults} class="search-results">
+          <template for:each={searchResults} for:item="result">
+            <div key={result.id} class="search-result" data-user-id={result.id} onclick={handleSearchResultClick}>
+              <div class="map-node-title">{result.name}</div>
+              <div class="map-node-detail">{result.title}</div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    <div lwc:if={errorText} class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-top_medium" role="alert">
+      <span>{errorText}</span>
+    </div>
+
+    <lightning-spinner lwc:if={isLoadingUser} alternative-text="Loading org chart" size="medium"></lightning-spinner>
+
+    <template lwc:if={hasCurrentUser}>
+      <div class="map-container slds-m-top_medium">
+        <div class="map-column">
+          <h3 class="slds-text-heading_small slds-m-bottom_small">Reports To</h3>
+          <div lwc:if={hasManager} class="map-node" data-user-id={managerNode.id} onclick={handleNodeClick}>
+            <div class="map-node-title">{managerNode.name}</div>
+            <div class="map-node-detail">{managerNode.title}</div>
+          </div>
+          <p lwc:else class="slds-text-color_weak slds-text-body_small">Top of the reporting chain - no manager.</p>
+        </div>
+
+        <div class="map-center-column">
+          <lightning-icon icon-name="utility:right" size="small" class="map-arrow"></lightning-icon>
+          <div class="map-node map-node_center">
+            <div class="map-node-title">{centerName}</div>
+            <div class="map-node-detail">{centerTitle}</div>
+          </div>
+          <lightning-icon icon-name="utility:right" size="small" class="map-arrow"></lightning-icon>
+        </div>
+
+        <div class="map-column">
+          <h3 class="slds-text-heading_small slds-m-bottom_small">{directReportsCountLabel}</h3>
+          <p lwc:if={hasNoDirectReports} class="slds-text-color_weak slds-text-body_small">No direct reports.</p>
+          <div lwc:if={directReports.length} class="map-node-list">
+            <template for:each={directReports} for:item="row">
+              <div key={row.id} class="map-node" data-user-id={row.id} onclick={handleNodeClick}>
+                <div class="map-node-title">{row.name}</div>
+                <div class="map-node-detail">{row.title}</div>
+              </div>
+            </template>
+            <button lwc:if={hasMoreReports} type="button" class="slds-button map-show-more" onclick={handleShowMoreReports} disabled={isLoadingReports}>
+              Show More ({remainingReportsCount} remaining)
+            </button>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+</template>

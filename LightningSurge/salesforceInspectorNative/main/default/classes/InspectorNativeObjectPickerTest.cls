@@ -46,4 +46,26 @@ private class InspectorNativeObjectPickerTest {
         }
         System.assert(!foundAccountHistory, 'AccountHistory is not creatable and should not appear');
     }
+
+    @IsTest
+    static void queryableListIsBroaderThanCreatableList() {
+        Test.startTest();
+        List<InspectorNativeObjectPicker.ObjectOption> queryableOptions = InspectorNativeObjectPicker.getQueryableObjects();
+        List<InspectorNativeObjectPicker.ObjectOption> createableOptions = InspectorNativeObjectPicker.getCreatableObjects();
+        Test.stopTest();
+
+        System.assert(!queryableOptions.isEmpty(), 'Expected at least one queryable object to be returned');
+        System.assert(
+            queryableOptions.size() >= createableOptions.size(),
+            'Every createable object is also queryable, so this list should never be smaller'
+        );
+
+        Boolean foundAccount = false;
+        for (InspectorNativeObjectPicker.ObjectOption option : queryableOptions) {
+            if (option.apiName == 'Account') {
+                foundAccount = true;
+            }
+        }
+        System.assert(foundAccount, 'Account should be in the queryable list');
+    }
 }

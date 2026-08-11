@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>67.0</apiVersion>
+    <isExposed>false</isExposed>
+    <description>Org Chart tab content: User ManagerId hierarchy, search-to-jump, click-to-recenter. Inspired by svierk/awesome-lwc-collection's orgChartViewer - see this bundle's .js doc comment for attribution and design notes.</description>
+</LightningComponentBundle>
