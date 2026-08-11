@@ -309,7 +309,7 @@ export default class InspectorNativeFlsMatrix extends LightningElement {
       this._dirtyStateByKey = new Map();
       this._objectPermissionDirtyByPermissionSetId = new Map();
       await refreshApex(this._wiredMatrix);
-      showToast(this, 'Success', 'Field permissions saved', 'success');
+      showToast(this, 'Success', 'Field and Object permissions saved', 'success');
     } catch (error) {
       showToast(this, 'Error saving field permissions', error?.body?.message ?? error?.message ?? 'Unknown error', 'error');
     } finally {
