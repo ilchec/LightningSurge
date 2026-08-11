@@ -170,6 +170,7 @@
               <th scope="col">Row</th>
               <th scope="col">Operation</th>
               <th scope="col">Status</th>
+              <th scope="col">Name</th>
               <th scope="col">Detail</th>
             </tr>
           </thead>
@@ -179,6 +180,7 @@
                 <td>{result.rowNumber}</td>
                 <td>{result.operation}</td>
                 <td class={result.statusClass}>{result.statusLabel}</td>
+                <td>{result.recordName}</td>
                 <td>
                   <template lwc:if={result.success}>
                     <button
@@ -267,8 +269,8 @@
           <button type="button" class="slds-button detail-link" onclick={handleOpenColumnPicker}>Manage Columns</button>
         </div>
 
-        <div class="grid-scroll-container">
-          <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+        <div>
+          <table class="slds-table slds-table_bordered slds-table_cell-buffer record-grid-table">
             <thead>
               <tr class="slds-line-height_reset">
                 <th class="row-action-col" scope="col"><span class="slds-assistive-text">Row Actions</span></th>

@@ -158,12 +158,15 @@
   align-items: center;
 }
 
-.grid-scroll-container {
-  max-height: 50vh;
-  overflow: auto;
-}
+/* No max-height/overflow wrapper here on purpose (removed) - lightning-combobox (used for
+   Picklist-type fields in this grid) renders its dropdown inside its own shadow DOM, positioned
+   relative to the field itself. An overflow:auto ancestor clips that dropdown instead of letting
+   it float over the rest of the page, with no CSS-only way to override it from outside (confirmed
+   elsewhere in this app - see Field Creator's and the related list's own history of this exact
+   issue). The grid now scrolls with the page instead of in its own capped viewport; the sticky
+   header below still works the same way relative to page scroll. */
 
-.grid-scroll-container thead th {
+.record-grid-table thead th {
   position: sticky;
   top: 0;
   z-index: 1;

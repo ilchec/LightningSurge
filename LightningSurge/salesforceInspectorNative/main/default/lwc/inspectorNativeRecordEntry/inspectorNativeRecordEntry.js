@@ -1099,9 +1099,25 @@ export default class InspectorNativeRecordEntry extends NavigationMixin(Lightnin
         operation: result.operation,
         success: result.success,
         detail: result.success ? result.recordId : result.errorMessage,
+        recordName: this.getRecordDisplayName(valuesByClientId.get(result.clientId)),
         values: valuesByClientId.get(result.clientId)
       }))
     ];
+  }
+
+  // Joins whatever the object's own name field(s) are (Account: Name; Contact/Lead: FirstName +
+  // LastName; and so on - objectInfo.nameFields is the platform's own list of which fields those
+  // are, so this doesn't need to special-case any particular object) from the values actually
+  // submitted for this row. Blank if the object has no name fields, or none of them were part of
+  // the layout shown - same "don't show something misleading" spirit as everywhere else in this
+  // component.
+  getRecordDisplayName(values) {
+    const nameFields = this._layoutContext?.objectInfo?.nameFields ?? [];
+    return nameFields
+      .map((apiName) => values?.[apiName])
+      .filter((value) => value !== null && value !== undefined && value !== '')
+      .join(' ')
+      .trim();
   }
 
   handleBackToGrid() {
