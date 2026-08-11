@@ -1,3 +1,5 @@
+<img width="1376" height="768" alt="Gemini_Generated_Image_cr7p8zcr7p8zcr7p" src="https://github.com/user-attachments/assets/37c4f72c-890c-45c7-90b2-311028304c6c" />
+
 # Salesforce Inspector Native
 
 A standalone Lightning app, reached via the App Launcher, bundling admin/developer tools built
