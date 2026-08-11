@@ -112,7 +112,7 @@
   border-color: var(--lwc-brandAccessible, #0176d3);
   text-align: center;
   min-width: 10rem;
-  margin-top: 0.25rem;
+  margin-top: 0.35rem;
 }
 
 .map-node-title {

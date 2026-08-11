@@ -3,11 +3,12 @@ import { NavigationMixin } from 'lightning/navigation';
 import { LightningElement, wire } from 'lwc';
 
 const SETTINGS_NAV_NAME = 'settings';
+const ABOUT_NAV_NAME = 'about';
 
 // Bump this by hand alongside any deploy-worthy change - the whole point is a glance at the nav
 // column confirming which build is actually running in the org, especially useful mid-debugging
 // when it's not otherwise obvious whether the latest fix actually made it into a deploy.
-const APP_VERSION = '0.5.2 (Beta)';
+const APP_VERSION = '0.5.3 (Beta)';
 
 // One entry per toggleable tab - `developerName` matches a Salesforce_Inspector_Native_Tab__mdt
 // record's DeveloperName, `name` is this component's own internal nav/content-switch key,
@@ -79,7 +80,9 @@ const TAB_CONFIG_QUERY = gql`
  *
  * The "Tab Settings" nav item doesn't render its own settings UI - custom metadata records can
  * only really be edited through Setup anyway, so it just links there via NavigationMixin rather
- * than reinventing a form Setup already provides.
+ * than reinventing a form Setup already provides. "About", alongside it, is a plain static content
+ * panel - what this app is, who it's for, and the running version (also shown at a glance below the
+ * nav itself via appVersion, without needing to navigate at all).
  * @alias InspectorNativeApp
  * @extends LightningElement
  * @hideconstructor
@@ -191,6 +194,10 @@ export default class InspectorNativeApp extends NavigationMixin(LightningElement
 
   get isSettingsActive() {
     return this.selectedTab === SETTINGS_NAV_NAME;
+  }
+
+  get isAboutActive() {
+    return this.selectedTab === ABOUT_NAV_NAME;
   }
 
   handleOpenTabSettings() {

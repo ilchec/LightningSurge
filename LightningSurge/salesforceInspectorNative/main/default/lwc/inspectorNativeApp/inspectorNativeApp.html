@@ -11,6 +11,7 @@
         </template>
         <lightning-vertical-navigation-section label="Admin">
           <lightning-vertical-navigation-item label="Tab Settings" name="settings"></lightning-vertical-navigation-item>
+          <lightning-vertical-navigation-item label="About" name="about"></lightning-vertical-navigation-item>
         </lightning-vertical-navigation-section>
       </lightning-vertical-navigation>
       <p class="app-version">Salesforce Inspector Native v{appVersion}</p>
@@ -44,6 +45,38 @@
             or hide a tab; changes take effect the next time this app loads, no redeploy needed.
           </p>
           <lightning-button variant="brand" label="Open in Setup" onclick={handleOpenTabSettings}></lightning-button>
+        </div>
+      </template>
+
+      <template lwc:if={isAboutActive}>
+        <div class="slds-p-around_medium about-panel">
+          <h2 class="slds-text-heading_medium slds-m-bottom_small">Salesforce Inspector Native</h2>
+          <p class="slds-m-bottom_small"><strong>Version:</strong> {appVersion}</p>
+          <p class="slds-m-bottom_medium">
+            A collection of Salesforce data, schema, and admin tools in one Lightning app - deployed
+            entirely as Salesforce metadata, with no local install, browser extension, or Data Loader
+            involved.
+          </p>
+
+          <h3 class="slds-text-heading_small slds-m-bottom_small">Who it's for</h3>
+          <p class="slds-m-bottom_medium">
+            Built for enterprise users on managed, locked-down devices - the kind of environment where
+            installing Data Loader or a browser extension like Salesforce Inspector Reloaded isn't an
+            option at all, whether that's IT policy, a lack of local admin rights, or a browser
+            extension allowlist that doesn't include it. Every tool here runs inside Salesforce's own
+            domain, nothing to explain to IT beyond "this is a deployed managed component."
+          </p>
+
+          <h3 class="slds-text-heading_small slds-m-bottom_small">License</h3>
+          <p class="slds-m-bottom_medium">
+            This tool is fully open source, released under the <strong>MIT License</strong>.
+          </p>
+
+          <h3 class="slds-text-heading_small slds-m-bottom_small">Attribution</h3>
+          <p>
+            Org Chart is inspired by, but not a code port of,&nbsp;
+            <a href="https://github.com/svierk/awesome-lwc-collection/tree/main/force-app/main/default/lwc/orgChartViewer" target="_blank" rel="noopener noreferrer">svierk's orgChartViewer</a>&nbsp;(MIT licensed).
+          </p>
         </div>
       </template>
     </div>
