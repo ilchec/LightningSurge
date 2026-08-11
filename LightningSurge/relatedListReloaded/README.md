@@ -1,3 +1,5 @@
+<img width="1376" height="768" alt="Gemini_Generated_Image_8sao9w8sao9w8sao" src="https://github.com/user-attachments/assets/7d556def-2009-46f7-8eaa-7253f45479e2" />
+
 # Related List Reloaded
 
 A standalone Lightning Record Page component: a drop-in stand-in for the standard Lightning related
