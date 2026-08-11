@@ -1,9 +1,8 @@
 /**
- * Bulk custom field creation for the Field Creator tab. The third (and, so far, last) Apex
- * exception to this app's otherwise GraphQL-only, no-Apex convention - unlike the other two (both
- * read-only: the object picker, the SOQL runner), this one WRITES to org schema, and is
- * meaningfully more sensitive as a result. A created field sticks around until someone deletes it
- * in Setup - there's no "undo" the way there is for a bad query or a bad record edit.
+ * Bulk custom field creation for the Field Creator tab. One of this app's few Apex exceptions to
+ * its otherwise GraphQL-only convention, and the only one that WRITES to org schema rather than
+ * data - a created field sticks around until someone deletes it in Setup, so this is treated with
+ * more care than a read-only tab (see salesforceInspectorNative/README.md's "Setting it up").
  *
  * Field creation is NOT reachable through the built-in Apex `Metadata` namespace
  * (Metadata.Operations/Metadata.DeployContainer) - that namespace only supports a narrow set of
@@ -13,40 +12,27 @@
  * via HttpRequest - this class uses the latter, since it doesn't require vendoring in a
  * multi-thousand-line generated class for one feature.
  *
- * This callout targets the org's own domain (URL.getOrgDomainUrl()) - which can't be known until
- * deploy time, so it can't be pre-authorized by this package's own metadata. Deploying this
- * package requires a one-time manual Setup step: add a Remote Site Setting for the org's own My
- * Domain URL. See salesforceInspectorNative/README.md for exact instructions.
+ * This callout targets the org's own domain (URL.getOrgDomainUrl()) - no Remote Site Setting is
+ * needed for it, confirmed live: Salesforce doesn't require pre-authorizing a callout an org makes
+ * back to its own domain.
  *
  * The callout is synchronous - each field's success/failure (with the real Tooling API error
- * message on failure) is known immediately, unlike the old Metadata.Operations.enqueueDeployment
- * design this replaced, which needed the UI to poll for completion.
+ * message on failure) is known immediately, no polling.
  *
- * Authentication is NOT UserInfo.getSessionId() - confirmed the hard way, a session obtained that
- * way from Apex invoked by a Lightning component is frequently not valid for REST/Tooling API use
- * at all (independent of org-level settings like API Allowlisting; there is no supported way to
- * obtain an API-capable session ID from Lightning). Instead this renders a tiny internal
- * Visualforce page (InspectorNativeSessionId.page, just `{!$Api.Session_ID}`) and reads the session
- * ID back via PageReference.getContent() - the well-known, if Salesforce-discouraged, workaround
- * for exactly this gap. Cached per-transaction (getApiSessionId()) so it's only rendered once
- * regardless of how many fields are being deployed in one call.
+ * Authentication is NOT UserInfo.getSessionId() - a session obtained that way from Apex invoked by
+ * a Lightning component is frequently not valid for REST/Tooling API use at all. Instead this
+ * renders a tiny internal Visualforce page (InspectorNativeSessionId.page, just
+ * `{!$Api.Session_ID}`) and reads the session ID back via PageReference.getContent() - the
+ * well-known, if Salesforce-discouraged, workaround for exactly this gap. Cached per-transaction
+ * (getApiSessionId()) so it's only rendered once regardless of how many fields are being deployed
+ * in one call.
  *
- * The per-field spec type (InspectorNativeFieldSpec) is deliberately its own top-level class, not
- * nested in here - see that class's own doc comment for why (Apex inner classes aren't reliable as
- * List<T> parameter types for LWC-invoked methods, confirmed directly).
- *
- * deployCustomFields takes a JSON string (fieldSpecsJson), not a typed List<InspectorNativeFieldSpec>
- * parameter - applying the same fix independently confirmed live for
- * InspectorNativeFlsMatrix.saveFieldPermissions (see that class's own doc comment), which hit the
- * exact same failure shape this class's own missing-API-name saga did (see the README's Field
- * Creator section for the full history): a List<CustomType> Apex-action parameter arriving with
- * every property null despite a confirmed-correct outgoing request. Sending the spec list as a JSON
- * string and parsing it with JSON.deserialize() inside the method bypasses whatever the automatic
- * List<T> action-parameter binding was doing wrong. Not yet independently confirmed for this class
- * specifically (the FLS Matrix fix itself is still pending confirmation too, as of this writing) -
- * both diagnostics already in this file (the console.log in inspectorNativeFieldCreator.js, and the
- * JSON.serialize(spec) embedded in the "missing required field data" error message below) are left
- * in place so this can still be verified for real rather than assumed fixed.
+ * The per-field spec type (InspectorNativeFieldSpec) is its own top-level class, not nested in here
+ * - Apex inner classes aren't reliable as List<T> parameter types for LWC-invoked methods (they
+ * work fine as return types). deployCustomFields itself takes a JSON string (fieldSpecsJson), not a
+ * typed List<InspectorNativeFieldSpec> parameter, parsed with JSON.deserialize() inside the method -
+ * the reliable way to get a list of custom-typed data into an @AuraEnabled method from this app's
+ * own experience (see InspectorNativeFlsMatrix.saveFieldPermissions for the same pattern).
  */
 public with sharing class InspectorNativeFieldCreator {
     private static final String API_VERSION = '67.0';

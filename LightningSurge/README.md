@@ -37,12 +37,35 @@ relatedListReloaded/       → main/default/lwc/...   (see relatedListReloaded/R
 
 | Topic | What it is |
 |---|---|
-| [`salesforceInspectorNative`](salesforceInspectorNative/README.md) | Standalone Lightning app (App Launcher entry point), meant to grow into a home for more than one tool over time. Today it has five tabs — Create Records (a row of object/layout selectors with an inline, not modal, record-entry grid rendered below them, see below), Query Records, Field Creator, Permissions and Groups, and Limits and Licenses — independently deployable like every other topic. |
+| [`salesforceInspectorNative`](salesforceInspectorNative/README.md) | Standalone Lightning app (App Launcher entry point) bundling eleven admin/developer tabs — record data (Create Records, Query Records, Data Export), schema (Schema Explorer, Relationship Map, Field Creator), and users/security (Permissions and Groups, FLS Matrix, Org Chart, Record Access Inspector), plus Limits and Licenses — independently deployable like every other topic. |
 | [`relatedListReloaded`](relatedListReloaded/README.md) | A Lightning Record Page component standing in for the standard related list - same look/behavior plus an inline Expand toggle and a filter per column. The first topic here with **zero Apex** - column config and records both come from base UI API wire adapters and `lightning/graphql`. |
+
+## Why duplication instead of a shared common package
+
+No topic here depends on another topic's folder. If a topic needs a helper that conceptually
+resembles something in another topic, the convention is to **copy it in, trimmed to what's actually
+used**, not to factor it into a third, shared package directory that every topic would then depend
+on. That keeps every topic deployable in complete isolation, at the cost of some duplication: a bug
+fix in a vendored piece of logic needs to be applied everywhere a copy of it still lives. A vendored
+file should say so in its own doc comment.
+
+`salesforceInspectorNative` is the clearest live example: its Create Records tab's record-entry
+grid, CSV import, column/mutation utilities, and shared toast/navigation helpers are all its own,
+self-contained bundles (`inspectorNativeRecordEntry`, `inspectorNativeCsvUtils`,
+`inspectorNativeRecordEntryUtils`, `inspectorNativeSharedUtils`, and so on) - nothing here is
+imported from anywhere outside the package. `relatedListReloaded`'s `reloadedListUtils` and
+`reloadedListPagination` follow the same shape for a different feature - see
+[`relatedListReloaded/README.md`](relatedListReloaded/README.md).
+
+If a future topic needs something that looks similar to logic already living in one of these
+packages, copy (and trim) it in rather than introducing a shared dependency between topic folders -
+that's the convention this repo is built around, and it's what keeps
+`sf project deploy start --source-dir <topic>` reliably working on its own for every topic, with no
+risk of a topic quietly breaking because some other, unrelated topic changed.
 
 ## Adding a new topic
 
-1. Create a feature branch for your topic, name it "feature/topic-name"
+1. Create a feature branch for your topic, named `feature/topic-name`.
 2. Create `<topicName>/main/default/lwc/` (and any other metadata folders it needs).
 3. Move in the LWCs that belong exclusively to it. For any dependency also used elsewhere, copy
    (don't move) it in — trimmed to what's actually used, consolidating multiple small dependencies
@@ -83,7 +106,11 @@ set up yet.
    ```
    This also deploys its bundled **Salesforce Inspector Native** permission set.
 2. Assign that permission set to whoever should use the app: Setup → Permission Sets →
-   "Salesforce Inspector Native" → Manage Assignments → Add Assignment.
+   "Salesforce Inspector Native" → Manage Assignments → Add Assignment. A few tabs (Field Creator,
+   FLS Matrix) additionally need the assigned user to hold the org-level "Customize Application"
+   system permission - a real Salesforce platform rule, not this app's own restriction. Full
+   permission-by-tab breakdown is in
+   [`salesforceInspectorNative/README.md`](salesforceInspectorNative/README.md#setting-it-up).
 3. App Launcher → search "Salesforce Inspector Native".
 
 ### Related List Reloaded
@@ -100,3 +127,10 @@ set up yet.
    configuring the standard "Related List - Single" component. Optionally adjust **Rows Shown When
    Collapsed** (default 4).
 4. Save and activate the page.
+
+## Salesforce DX basics
+
+- [Salesforce Extensions Documentation](https://developer.salesforce.com/tools/vscode/)
+- [Salesforce CLI Setup Guide](https://developer.salesforce.com/docs/atlas.en-us.sfdx_setup.meta/sfdx_setup/sfdx_setup_intro.htm)
+- [Salesforce DX Developer Guide](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_intro.htm)
+- [Salesforce DX Project Configuration](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_ws_config.htm) (`sfdx-project.json`)
