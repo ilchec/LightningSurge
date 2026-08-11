@@ -25,6 +25,27 @@
   vertical-align: middle;
 }
 
+/* lightning-card's own default (unnamed) slot has no built-in padding, and its base SLDS border
+   is already rounded - so slds-table_bordered (a square-cornered border of its own, sitting flush
+   against the card's inner edge) was what made the whole widget look square instead of rounded.
+   Row separators below replace that outer box; this padding keeps the table from touching the
+   card's rounded edge so only the card's own border reads as "the" border. */
+.table-container {
+  padding: 0 1rem 1rem;
+}
+
+.related-list-table thead tr:last-child th {
+  border-bottom: 1px solid var(--lwc-colorBorder, #dddbda);
+}
+
+.related-list-table tbody td {
+  border-bottom: 1px solid var(--lwc-colorBorder, #dddbda);
+}
+
+.related-list-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
 .sortable-header {
   cursor: pointer;
   display: inline-flex;

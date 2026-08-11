@@ -19,8 +19,8 @@
 
     <p lwc:if={hasNoRecords} class="slds-text-color_weak slds-p-around_small">No records to show.</p>
 
-    <div lwc:if={columns.length}>
-      <table class="slds-table slds-table_bordered slds-table_cell-buffer related-list-table">
+    <div lwc:if={columns.length} class="table-container">
+      <table class="slds-table slds-table_cell-buffer related-list-table">
         <thead>
           <tr class="slds-line-height_reset">
             <template for:each={columns} for:item="column">
