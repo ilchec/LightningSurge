@@ -1,15 +1,17 @@
 <template>
-  <lightning-card>
-    <span slot="title" class="header-title">
-      <span lwc:if={objectIconUrl} class="object-icon-container" style={objectIconContainerStyle}>
-        <img src={objectIconUrl} class="object-icon" alt="" />
+  <div class="related-list-card">
+    <div class="related-list-header">
+      <span class="header-title">
+        <span lwc:if={objectIconUrl} class="object-icon-container" style={objectIconContainerStyle}>
+          <img src={objectIconUrl} class="object-icon" alt="" />
+        </span>
+        <a href="#" onclick={handleHeaderClick} class="header-title-text header-title-link">{headerLabel}</a>
       </span>
-      <span>{headerLabel}</span>
-    </span>
-    <span slot="actions">
-      <lightning-button lwc:if={canCreate} label="New" onclick={handleNewClick} class="slds-m-right_x-small"></lightning-button>
-      <lightning-button lwc:if={canExpand} label={expandToggleLabel} onclick={handleToggleExpand}></lightning-button>
-    </span>
+      <span class="header-actions">
+        <lightning-button lwc:if={canCreate} label="New" onclick={handleNewClick} class="slds-m-right_x-small"></lightning-button>
+        <lightning-button lwc:if={canExpand} label={expandToggleLabel} onclick={handleToggleExpand}></lightning-button>
+      </span>
+    </div>
 
     <lightning-spinner lwc:if={isLoading} alternative-text="Loading records" size="small"></lightning-spinner>
 
@@ -101,5 +103,5 @@
       onprevious={handlePreviousPage}
       onnext={handleNextPage}
     ></c-reloaded-list-pagination>
-  </lightning-card>
+  </div>
 </template>

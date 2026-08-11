@@ -270,6 +270,22 @@ export default class ReloadedList extends NavigationMixin(LightningElement) {
     this.resetPaging();
   }
 
+  // Same navigation the standard related list's own title link uses - a dedicated PageReference
+  // type for "the full list view of this relationship" (sorting/filtering/paging there is the
+  // platform's own list view UI, not this component's inline table).
+  handleHeaderClick(event) {
+    event.preventDefault();
+    this[NavigationMixin.Navigate]({
+      type: 'standard__recordRelationshipPage',
+      attributes: {
+        recordId: this.recordId,
+        objectApiName: this.objectApiName,
+        relationshipApiName: this.relationshipApiName,
+        actionName: 'view'
+      }
+    });
+  }
+
   handleSort(event) {
     const fieldApiName = event.currentTarget.dataset.field;
     if (this._sortField === fieldApiName) {

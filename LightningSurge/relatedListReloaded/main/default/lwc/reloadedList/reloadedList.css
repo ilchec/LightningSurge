@@ -1,7 +1,53 @@
+/* Built by hand instead of lightning-card: a base component's own internal border/slot padding
+   lives in ITS shadow DOM, which - same as a lightning-combobox's dropdown, elsewhere in this app -
+   can't be reached or relied on from out here. That was silently causing three things at once: no
+   visible border in some page contexts, and the header (lightning-card's own title-slot padding)
+   and the table (this file's own .table-container padding) drifting out of alignment since neither
+   side could see what padding the other actually had. Owning the whole shell here means the border
+   is guaranteed to render, and the header/table share the exact same HORIZONTAL_PADDING value below
+   instead of two independently-guessed ones. */
+.related-list-card {
+  background: var(--slds-g-color-neutral-base-100, #ffffff);
+  border: 1px solid var(--slds-g-color-border-base-1, #dddbda);
+  border-radius: 1rem;
+}
+
+.related-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+}
+
 .header-title {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+/* lightning-card's own title slot renders at slds-text-heading_small size (1rem/700) by default -
+   this plain span had no font styling of its own, so it was falling back to normal body text
+   (0.8125rem/400) instead. Matching that same size/weight here now that the header is hand-built. */
+.header-title-text {
+  font-size: 1.25rem;
+  font-weight: 400;
+  line-height: 2rem;
+}
+
+/* The standard related list's own title is a link to that relationship's full list view - styled
+   like a heading (dark text), not like an inline blue link, with the pointer/underline-on-hover
+   just to signal it's clickable. */
+.header-title-link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.header-title-link:hover,
+.header-title-link:focus {
+  text-decoration: underline;
 }
 
 .object-icon-container {
@@ -10,7 +56,7 @@
   justify-content: center;
   width: 1.5rem;
   height: 1.5rem;
-  border-radius: 0.25rem;
+  border-radius: 1rem;
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -25,13 +71,18 @@
   vertical-align: middle;
 }
 
-/* lightning-card's own default (unnamed) slot has no built-in padding, and its base SLDS border
-   is already rounded - so slds-table_bordered (a square-cornered border of its own, sitting flush
-   against the card's inner edge) was what made the whole widget look square instead of rounded.
-   Row separators below replace that outer box; this padding keeps the table from touching the
-   card's rounded edge so only the card's own border reads as "the" border. */
+/* Same horizontal padding as .related-list-header above, so the table's own left edge lines up
+   with the icon/title above it rather than each guessing its own inset independently.
+   overflow-x here contains a wide table (more columns than fit the viewport) to a horizontal
+   scrollbar instead of spilling past the card on narrow screens. Tradeoff: CSS has no way to make
+   an element scrollable on one axis without also clipping the other (setting overflow-x alone
+   still forces overflow-y to behave as "auto", per the CSS spec) - so the row action menu's
+   dropdown, if it opens past this container's bottom edge, is clipped the same way an overflow
+   ancestor clips a lightning-combobox dropdown elsewhere in this app. Accepted here since an
+   uncontained table breaking the page layout on a narrow screen is the worse default. */
 .table-container {
   padding: 0 1rem 1rem;
+  overflow-x: auto;
 }
 
 .related-list-table thead tr:last-child th {
@@ -75,8 +126,3 @@
   display: inline-flex;
   align-items: center;
 }
-
-/* No overflow here on purpose - unlike Field Creator's fixed-width table, this table's column
-   count is whatever the object's page layout configures (usually a handful), and clipping via
-   overflow would also clip the per-row Edit/Delete button-menu dropdown when it opens near the
-   table's edge. A very wide table falls back to the page's own horizontal scroll instead. */
