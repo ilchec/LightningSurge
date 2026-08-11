@@ -34,6 +34,10 @@
         <apexClass>InspectorNativeFlsMatrix</apexClass>
         <enabled>true</enabled>
     </classAccesses>
+    <classAccesses>
+        <apexClass>InspectorNativeRecordAccess</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
     <pageAccesses>
         <apexPage>InspectorNativeSessionId</apexPage>
         <enabled>true</enabled>

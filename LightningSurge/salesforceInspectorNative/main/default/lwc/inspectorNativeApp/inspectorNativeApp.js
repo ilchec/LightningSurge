@@ -29,6 +29,7 @@ const TABS = [
   { name: 'permissionsGroups', label: 'Permissions and Groups', developerName: 'Permissions_And_Groups', category: CATEGORY_USERS_SECURITY },
   { name: 'flsMatrix', label: 'FLS Matrix', developerName: 'Fls_Matrix', category: CATEGORY_USERS_SECURITY },
   { name: 'orgChart', label: 'Org Chart', developerName: 'Org_Chart', category: CATEGORY_USERS_SECURITY },
+  { name: 'recordAccess', label: 'Record Access Inspector', developerName: 'Record_Access', category: CATEGORY_USERS_SECURITY },
   { name: 'limitsLicenses', label: 'Limits and Licenses', developerName: 'Limits_And_Licenses', category: CATEGORY_ORG_INFO }
 ];
 
@@ -176,6 +177,10 @@ export default class InspectorNativeApp extends NavigationMixin(LightningElement
 
   get isOrgChartActive() {
     return this.selectedTab === 'orgChart';
+  }
+
+  get isRecordAccessActive() {
+    return this.selectedTab === 'recordAccess';
   }
 
   get isSettingsActive() {

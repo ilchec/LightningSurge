@@ -1,0 +1,82 @@
+<template>
+  <div class="slds-p-around_medium page-container">
+    <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_medium">
+      Shows whether a user can see, edit, delete, or transfer a specific record - and their overall access level.
+      A result depends on you being able to see the record yourself too; an empty/no-access result can mean
+      either the user genuinely has no access, or the record isn't visible to you.
+    </p>
+
+    <div class="selector-row">
+      <div class="selector-item">
+        <lightning-input
+          type="text"
+          label="Record Id"
+          placeholder="e.g. 001XXXXXXXXXXXXXXX"
+          value={recordIdInput}
+          onchange={handleRecordIdChange}
+        ></lightning-input>
+      </div>
+      <div class="selector-item search-item">
+        <lightning-input
+          type="search"
+          label="User"
+          placeholder="Search by name..."
+          value={userSearchTerm}
+          onchange={handleUserSearchChange}
+        ></lightning-input>
+        <div lwc:if={hasSearchResults} class="search-results">
+          <template for:each={searchResults} for:item="result">
+            <div key={result.id} class="search-result" data-user-id={result.id} onclick={handleUserResultClick}>
+              <div class="result-name">{result.name}</div>
+              <div class="result-detail">{result.username}</div>
+            </div>
+          </template>
+        </div>
+        <div lwc:if={hasSelectedUser} class="selected-user-chip">
+          <span>{selectedUser.name} ({selectedUser.username})</span>
+          <button type="button" class="slds-button detail-link" onclick={handleClearUser}>Change</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="slds-m-top_medium">
+      <lightning-button
+        variant="brand"
+        label="Check Access"
+        onclick={handleCheckAccessClick}
+        disabled={isCheckDisabled}
+      ></lightning-button>
+    </div>
+
+    <div lwc:if={errorText} class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-top_medium" role="alert">
+      <span>{errorText}</span>
+    </div>
+
+    <lightning-spinner lwc:if={isChecking} alternative-text="Checking access" size="medium"></lightning-spinner>
+
+    <template lwc:if={hasAccessResult}>
+      <div class="access-result slds-m-top_medium">
+        <h3 class="slds-text-heading_small slds-m-bottom_small">
+          {selectedUser.name}'s access to this {objectLabel} record
+        </h3>
+        <p class="slds-m-bottom_small">
+          <span class="slds-text-color_weak">Max Access Level:&nbsp;</span>
+          <strong>{maxAccessLevel}</strong>
+        </p>
+        <ul class="access-list">
+          <template for:each={accessRows} for:item="row">
+            <li key={row.key} class="access-row">
+              <template lwc:if={row.granted}>
+                <lightning-icon icon-name="utility:check" size="x-small" variant="success" alternative-text="Granted"></lightning-icon>
+              </template>
+              <template lwc:else>
+                <lightning-icon icon-name="utility:close" size="x-small" alternative-text="Not granted"></lightning-icon>
+              </template>
+              <span class="access-label">{row.label}</span>
+            </li>
+          </template>
+        </ul>
+      </div>
+    </template>
+  </div>
+</template>

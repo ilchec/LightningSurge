@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>67.0</apiVersion>
+    <isExposed>false</isExposed>
+    <description>Record Access Inspector tab content: pick a user and a record Id, see their Read/Edit/Delete/Transfer access and MaxAccessLevel, backed by UserRecordAccess.</description>
+</LightningComponentBundle>

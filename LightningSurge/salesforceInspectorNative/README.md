@@ -1,14 +1,14 @@
 # Salesforce Inspector Native
 
 A standalone Lightning app, reached via the App Launcher, meant to grow into a home for more than
-one admin/developer tool over time. Today it has ten tabs, grouped into four sections on its
-**vertical nav on the left** (not a horizontal tabset, and not one flat list either - ten tabs
+one admin/developer tool over time. Today it has eleven tabs, grouped into four sections on its
+**vertical nav on the left** (not a horizontal tabset, and not one flat list either - eleven tabs
 spanning record data, object structure, and user/permission administration had become a mixture
 that was hard to scan as a single list):
 
 - **Data** - Create Records, Query Records, Data Export
 - **Schema** - Schema Explorer, Relationship Map, Field Creator
-- **Users & Security** - Permissions and Groups, FLS Matrix, Org Chart
+- **Users & Security** - Permissions and Groups, FLS Matrix, Org Chart, Record Access Inspector
 - **Org Info** - Limits and Licenses
 
 Which tabs actually show up is configurable per org (see "Tab visibility" below) - the section
@@ -276,11 +276,26 @@ against its own known Id rather than a create.
   replicate the original's pan/zoom/expand-collapse canvas or PNG export - if you want that fuller
   experience, the original component is a better fit for a page that doesn't share this repo's
   no-external-scripts constraint.
+- **Record Access Inspector tab** - "why can/can't user X see record Y": pick a user (the same
+  server-searched picker Permissions and Groups already uses) and paste a record Id, and see their
+  Read/Edit/Delete/Transfer access plus overall MaxAccessLevel. Backed by `UserRecordAccess`, the
+  platform's own purpose-built object for exactly this question - read-only, with real, enforced
+  query constraints: the WHERE clause must filter on a single `UserId` and a single `RecordId`, only
+  `RecordId`/the `Has*Access` fields/`MaxAccessLevel` can be selected, and - confirmed the hard way,
+  not documented anywhere checked beforehand - `RecordId` must be explicitly in the SELECT list too,
+  even though it's already pinned to one value in the WHERE clause; leaving it out fails the whole
+  query at deploy time. **A meaningful result depends on the person running this tool being able to
+  see the record themselves too** - `UserRecordAccess` only reports on records visible to the
+  querying context, same `with sharing` enforcement as everywhere else in this app. An empty/no-
+  access result can mean either the target user genuinely has no access, or the record isn't
+  visible to whoever's running the check - there's no way to tell the two apart from this object
+  alone, so that ambiguity is called out directly in the tab itself rather than left as a silent gap.
 
 The object list (Create Records, Field Creator, Schema Explorer, Relationship Map, Data Export, FLS
 Matrix), the query itself (Query Records), field deployment/permissions (Field Creator), permission/
-group assignment (Permissions and Groups), org info reads (Limits and Licenses), and the FLS matrix
-bulk read/save (FLS Matrix) are the places in this repo that aren't pure GraphQL:
+group assignment (Permissions and Groups), org info reads (Limits and Licenses), the FLS matrix bulk
+read/save (FLS Matrix), and the record access read (Record Access Inspector) are the places in this
+repo that aren't pure GraphQL:
 - Reliably enumerating every object the running user can create records for (or, for the four
   read-oriented tabs below, every object they can query at all), with labels, needs
   `Schema.getGlobalDescribe()`, which isn't reachable client-side. `InspectorNativeObjectPicker` has
@@ -314,10 +329,13 @@ bulk read/save (FLS Matrix) are the places in this repo that aren't pure GraphQL
 - Reading license usage and org limits needs Apex too - `UserLicense`/`PermissionSetLicense` are
   queryable objects, and `System.OrgLimits.getMap()` is Apex-native (no SOQL involved at all).
   `InspectorNativeOrgInfo` is read-only, same low-risk category as the object list and SOQL runner.
+- Reading a user's access to a specific record needs Apex too - `UserRecordAccess` isn't exposed via
+  the UI API GraphQL schema, and has its own real query constraints (see "What's in it" above).
+  `InspectorNativeRecordAccess` is read-only, same low-risk category as the three above.
 
-`InspectorNativeObjectPicker`, `InspectorNativeSoqlRunner`, and `InspectorNativeOrgInfo` are
-read-only and low-risk - accepted exceptions to the no-Apex convention the rest of this repo follows,
-each one narrow, nothing more.
+`InspectorNativeObjectPicker`, `InspectorNativeSoqlRunner`, `InspectorNativeOrgInfo`, and
+`InspectorNativeRecordAccess` are read-only and low-risk - accepted exceptions to the no-Apex
+convention the rest of this repo follows, each one narrow, nothing more.
 **`InspectorNativeFieldCreator`, `InspectorNativeFieldPermissions`, `InspectorNativePermissionAssignment`,
 and `InspectorNativeFlsMatrix` are different in kind**: they write to org schema/security. A created
 field sticks around until someone deletes it in Setup, a permission grant persists until someone
@@ -351,7 +369,7 @@ section above).
    **Salesforce Inspector Native** permission set.
 2. Assign that permission set to whoever should use the app: Setup → Permission Sets →
    "Salesforce Inspector Native" → Manage Assignments → Add Assignment. It grants access to the app
-   itself, its tab, and all seven Apex classes - **not** object or field permissions for any
+   itself, its tab, and all eight Apex classes - **not** object or field permissions for any
    specific object. This app only ever works against whatever objects/fields the assigned user can
    already create/query/update through their profile or other permission sets, the same as every
    other UI API-based tool in this repo - it doesn't grant or need its own object access, and a
@@ -382,11 +400,14 @@ section above).
      substitute for. A user missing one of these can still use the tab for the half they do have
      rights to; the other half fails with a clear per-row error on the results screen rather than
      silently doing nothing.
-   - Limits and Licenses, Schema Explorer, Relationship Map, Data Export, and Org Chart need nothing
-     beyond the base permission set - all five are read-only reads (SOQL/Apex-native for Limits and
-     Licenses, UI API/GraphQL for the other four), no special system permission required. Org Chart
-     specifically shows whatever User records/fields (Name, Title, ManagerId) the running user's own
-     FLS and sharing already lets them see - same as every other GraphQL-based tab in this app.
+   - Limits and Licenses, Schema Explorer, Relationship Map, Data Export, Org Chart, and Record
+     Access Inspector need nothing beyond the base permission set - all six are read-only reads
+     (SOQL/Apex-native for Limits and Licenses and Record Access Inspector, UI API/GraphQL for the
+     other four), no special system permission required. Org Chart specifically shows whatever User
+     records/fields (Name, Title, ManagerId) the running user's own FLS and sharing already lets
+     them see - same as every other GraphQL-based tab in this app. Record Access Inspector's results
+     are similarly bounded by the running user's own visibility into the record being checked - see
+     "What's in it" above for what that means for an empty/no-access result.
    - FLS Matrix additionally needs the running user to hold **"Customize Application"** to actually
      save changes, the same platform rule Field Creator needs and for the same reason - field-level
      security is a schema-adjacent setting, consistent with why Setup's own Field-Level Security
@@ -431,6 +452,8 @@ section above).
 | `inspectorNativeFlsMatrixUtils` | Pure functions: merging server state with in-progress unsaved edits into a renderable grid, and the Edit-implies-Read checkbox toggle logic. |
 | `inspectorNativeOrgChart` | Org Chart tab content: the search box, the Reports To/centered-user/Direct Reports hub-and-spoke layout, click-to-recenter, all built from `inspectorNativeOrgChartUtils`. Inspired by (not a port of) svierk/awesome-lwc-collection's `orgChartViewer` - see "What's in it" above. |
 | `inspectorNativeOrgChartUtils` | Pure functions: building the user/manager/direct-reports/search GraphQL queries (including the escaped LIKE-search literal) and extracting rows from their responses. |
+| `inspectorNativeRecordAccess` | Record Access Inspector tab content: the user search box (reusing `InspectorNativePermissionAssignment.searchUsers`), the record Id input, and the Read/Edit/Delete/Transfer + MaxAccessLevel results, via `InspectorNativeRecordAccess` (Apex). |
+| `InspectorNativeRecordAccess` (Apex) | Read-only `UserRecordAccess` lookup for a given user + record Id - for the Record Access Inspector tab. See "What's in it" above for the real query constraints this had to work around. |
 | `InspectorNativeObjectPicker` (Apex) | Read-only, cacheable object lists: `getCreatableObjects` (Create Records/Field Creator) and the broader `getQueryableObjects` (Schema Explorer/Relationship Map/Data Export/FLS Matrix). See "What's in it" above. |
 | `InspectorNativeSoqlRunner` (Apex) | Read-only SOQL execution for Query Records. See "What's in it" above. |
 | `InspectorNativeFieldCreator` (Apex) | Builds and POSTs a Tooling API `CustomField` payload per requested field, for Field Creator - writes to org schema, and the only Apex class in this app that performs an HTTP callout. See "What's in it" above (and the Remote Site Setting step in "Setting it up"). |
@@ -443,5 +466,5 @@ section above).
 | `InspectorNativeFlsMatrix` (Apex) | Reads the full field x permission-set matrix (`getFieldPermissionMatrix`, filtered to `isPermissionable()` fields) and bulk-saves it (`saveFieldPermissions` - upserts a grant, or deletes it outright once both Read and Edit are unchecked) - for the FLS Matrix tab. See "What's in it" above. |
 | `InspectorNativeFlsGrant` (Apex) | One (field, permission set) cell's desired Read/Edit state - the parameter type for `InspectorNativeFlsMatrix.saveFieldPermissions`. Same top-level-not-nested reasoning as `InspectorNativeFieldSpec`/`InspectorNativeFieldPermissionGrant` above. |
 | Custom Tab / Custom Application (`Salesforce_Inspector_Native`) | App Launcher entry point. |
-| Permission Set (`Salesforce_Inspector_Native`) | Grants the app, its tab, all seven Apex classes, and access to the `InspectorNativeSessionId` Visualforce page - deliberately no object/field permissions, see "Setting it up" above. |
+| Permission Set (`Salesforce_Inspector_Native`) | Grants the app, its tab, all eight Apex classes, and access to the `InspectorNativeSessionId` Visualforce page - deliberately no object/field permissions, see "Setting it up" above. |
 | `inspectorNativeCsvUtils`, `inspectorNativeQueryBridge`, `inspectorNativeRecordEntryUtils`, `inspectorNativeSharedUtils`, `inspectorNativeMapping`, `inspectorNativeFormField` | Supporting bundles for the grid above: CSV parsing/mapping, the GraphQL query-to-Promise bridge, column/mutation-building utilities, shared toast/navigation/field-model helpers, the CSV-to-field mapping dialog, and the typed form-field renderer. Originally forked from the now-retired `multiRecordEntry` topic (see "Fully standalone" above) - self-contained now, not vendored from or kept in sync with anything outside this package. |
