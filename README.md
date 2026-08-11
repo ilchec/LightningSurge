@@ -1,3 +1,5 @@
+<img width="1584" height="672" alt="Gemini_Generated_Image_te24a5te24a5te24" src="https://github.com/user-attachments/assets/9d138cc9-4a43-440a-821f-5dfee8b8b8bb" />
+
 # Lightning Surge
 
 A collection of independent Lightning Web Component packages for Salesforce, built around the UI
