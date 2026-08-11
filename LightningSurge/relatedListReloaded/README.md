@@ -64,9 +64,9 @@ relationship isn't attempted - see "What's in it" below).
   other and against the fixed parent-record filter. Not offered on `Reference` columns - filtering
   through a relationship (e.g. by the referenced record's Name) isn't attempted in this pass.
 - **Row actions** - click a row's first column to navigate to that record; a per-row **Edit**/
-  **Delete** menu, matching the standard related list's own row-level actions. Delete asks for
-  confirmation first (`lightning/confirm`) and can't be undone once confirmed - same as deleting a
-  record anywhere else in Salesforce.
+  **Delete** icon button pair, on the left of the row. Delete asks for confirmation first
+  (`lightning/confirm`) and can't be undone once confirmed - same as deleting a record anywhere
+  else in Salesforce.
 - **New/Edit** render the object's real page layout (`lightning-record-form`, `layout-type="Full"`)
   - the same fields, sections, and required-ness the standard New/Edit buttons show, not a
   hand-picked field subset.

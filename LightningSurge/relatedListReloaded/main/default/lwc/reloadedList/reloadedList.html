@@ -25,6 +25,7 @@
       <table class="slds-table slds-table_cell-buffer related-list-table">
         <thead>
           <tr class="slds-line-height_reset">
+            <th class="row-actions-col" scope="col"><span class="slds-assistive-text">Actions</span></th>
             <template for:each={columns} for:item="column">
               <th key={column.fieldApiName} scope="col">
                 <span lwc:if={column.sortable} class="sortable-header" data-field={column.fieldApiName} onclick={handleSort}>
@@ -34,9 +35,9 @@
                 <span lwc:else>{column.label}</span>
               </th>
             </template>
-            <th class="row-actions-col" scope="col"><span class="slds-assistive-text">Actions</span></th>
           </tr>
           <tr class="slds-line-height_reset filter-row">
+            <th class="row-actions-col"></th>
             <template for:each={columns} for:item="column">
               <th key={column.fieldApiName}>
                 <template lwc:if={column.filterable}>
@@ -61,12 +62,30 @@
                 </template>
               </th>
             </template>
-            <th class="row-actions-col"></th>
           </tr>
         </thead>
         <tbody>
           <template for:each={displayRows} for:item="row">
             <tr key={row.id}>
+              <td class="row-actions-col">
+                <lightning-button-icon
+                  icon-name="utility:edit"
+                  alternative-text="Edit"
+                  variant="border-filled"
+                  size="x-small"
+                  data-id={row.id}
+                  onclick={handleEditClick}
+                  class="slds-m-right_xx-small"
+                ></lightning-button-icon>
+                <lightning-button-icon
+                  icon-name="utility:delete"
+                  alternative-text="Delete"
+                  variant="border-filled"
+                  size="x-small"
+                  data-id={row.id}
+                  onclick={handleDeleteClick}
+                ></lightning-button-icon>
+              </td>
               <template for:each={row.cells} for:item="cell">
                 <td key={cell.key}>
                   <a lwc:if={cell.isFirstColumn} href="#" data-id={row.id} onclick={handleRowClick} class="cell-link">
@@ -83,12 +102,6 @@
                   <span lwc:else>{cell.value}</span>
                 </td>
               </template>
-              <td class="row-actions-col">
-                <lightning-button-menu alternative-text="Show actions" icon-size="x-small" data-id={row.id} onselect={handleRowAction}>
-                  <lightning-menu-item value="edit" label="Edit"></lightning-menu-item>
-                  <lightning-menu-item value="delete" label="Delete"></lightning-menu-item>
-                </lightning-button-menu>
-              </td>
             </tr>
           </template>
         </tbody>

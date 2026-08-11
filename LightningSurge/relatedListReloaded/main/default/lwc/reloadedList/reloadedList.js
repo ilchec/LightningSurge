@@ -361,22 +361,25 @@ export default class ReloadedList extends NavigationMixin(LightningElement) {
     }
   }
 
-  async handleRowAction(event) {
-    const action = event.detail.value;
+  // Same principle as handleNewClick - lightning-record-form (layout-type="Full") pulls the
+  // object's real page layout, so Edit shows the same fields/sections/required-ness the standard
+  // Edit button would, not a hand-picked subset.
+  async handleEditClick(event) {
     const recordIdForRow = event.currentTarget.dataset.id;
-    if (action === 'edit') {
-      const result = await ReloadedListRecordForm.open({
-        size: 'medium',
-        objectApiName: this.childObjectApiName,
-        objectLabel: this._childObjectInfo?.label,
-        recordId: recordIdForRow
-      });
-      if (result) {
-        this.refreshList();
-      }
-    } else if (action === 'delete') {
-      this.confirmAndDelete(recordIdForRow);
+    const result = await ReloadedListRecordForm.open({
+      size: 'medium',
+      objectApiName: this.childObjectApiName,
+      objectLabel: this._childObjectInfo?.label,
+      recordId: recordIdForRow
+    });
+    if (result) {
+      this.refreshList();
     }
+  }
+
+  handleDeleteClick(event) {
+    const recordIdForRow = event.currentTarget.dataset.id;
+    this.confirmAndDelete(recordIdForRow);
   }
 
   async confirmAndDelete(recordIdToDelete) {
