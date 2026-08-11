@@ -32,7 +32,7 @@ public with sharing class InspectorNativeSoqlRunner {
         result.records = new List<Map<String, Object>>();
         Set<String> fieldNameSet = new Set<String>();
         for (SObject record : queryResults) {
-            Map<String, Object> fields = record.getPopulatedFieldsAsMap();
+            Map<String, Object> fields = flattenRecord(record);
             fieldNameSet.addAll(fields.keySet());
             result.records.add(fields);
         }
@@ -41,6 +41,31 @@ public with sharing class InspectorNativeSoqlRunner {
         }
         result.fieldApiNames = sortFieldNamesIdFirst(fieldNameSet);
         return result;
+    }
+
+    // Relationship traversal (e.g. "SELECT Id, Account.Name FROM Contact"): getPopulatedFieldsAsMap()
+    // returns a parent relationship (e.g. "Account") as a nested SObject rather than a flat
+    // "Account.Name" key - this walks that nesting and flattens it into dot-path keys instead, to
+    // arbitrary depth (e.g. "Account.Owner.Name"), so the client can treat every populated field the
+    // same way regardless of whether it came from the base object or a traversed relationship. A
+    // child-relationship subquery (e.g. "(SELECT Id FROM Contacts)") surfaces as a List rather than an
+    // SObject and is skipped entirely - a list of records can't flatten into one scalar column, and
+    // this app's grid only ever renders one row per top-level queried record anyway.
+    private static Map<String, Object> flattenRecord(SObject record) {
+        Map<String, Object> flat = new Map<String, Object>();
+        Map<String, Object> populated = record.getPopulatedFieldsAsMap();
+        for (String fieldName : populated.keySet()) {
+            Object value = populated.get(fieldName);
+            if (value instanceof SObject) {
+                Map<String, Object> nested = flattenRecord((SObject) value);
+                for (String nestedFieldName : nested.keySet()) {
+                    flat.put(fieldName + '.' + nestedFieldName, nested.get(nestedFieldName));
+                }
+            } else if (!(value instanceof List<Object>)) {
+                flat.put(fieldName, value);
+            }
+        }
+        return flat;
     }
 
     // Apex Map/Set iteration order isn't guaranteed to match the SELECT clause's written order,

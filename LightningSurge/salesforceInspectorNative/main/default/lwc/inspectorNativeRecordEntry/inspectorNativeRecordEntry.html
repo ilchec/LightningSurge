@@ -153,7 +153,7 @@
 
       <template lwc:elseif={isResultsState}>
         <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-bottom_small">
-          <h3 class="slds-text-heading_small">Save results</h3>
+          <h3 class="slds-text-heading_small">{resultsHeading}</h3>
           <lightning-button
             label="Export Results CSV"
             icon-name="utility:download"
@@ -210,6 +210,13 @@
               label={editModeToggleLabel}
               icon-name="utility:edit"
               onclick={handleToggleEditMode}
+            ></lightning-button>
+            <lightning-button
+              label={deleteSelectedButtonLabel}
+              icon-name="utility:delete"
+              variant="destructive"
+              onclick={handleDeleteSelectedClick}
+              disabled={isDeleteSelectedDisabled}
             ></lightning-button>
           </template>
           <template lwc:else>
@@ -273,6 +280,15 @@
           <table class="slds-table slds-table_bordered slds-table_cell-buffer record-grid-table">
             <thead>
               <tr class="slds-line-height_reset">
+                <th lwc:if={queryMode} class="row-action-col" scope="col">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all rows"
+                    checked={isAllRowsSelected}
+                    onchange={handleSelectAllToggle}
+                    disabled={isRowSelectionDisabled}
+                  />
+                </th>
                 <th class="row-action-col" scope="col"><span class="slds-assistive-text">Row Actions</span></th>
                 <template for:each={columnGroups} for:item="group">
                   <th key={group.id} colspan={group.columnCount} scope="colgroup" class="slds-text-align_center">
@@ -281,6 +297,7 @@
                 </template>
               </tr>
               <tr lwc:if={isTableView} class="slds-line-height_reset">
+                <th lwc:if={queryMode} class="row-action-col" scope="col"></th>
                 <th class="row-action-col" scope="col"></th>
                 <template for:each={visibleFlatColumns} for:item="column">
                   <th key={column.apiName} scope="col" class="raw-cell-col">
@@ -292,6 +309,16 @@
             <tbody>
               <template for:each={rows} for:item="row">
                 <tr key={row.clientId}>
+                  <td lwc:if={queryMode}>
+                    <input
+                      type="checkbox"
+                      aria-label="Select row"
+                      checked={row.selected}
+                      data-row-id={row.clientId}
+                      onchange={handleRowSelectToggle}
+                      disabled={isRowSelectionDisabled}
+                    />
+                  </td>
                   <td>
                     <lightning-button-icon
                       icon-name="utility:delete"

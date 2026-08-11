@@ -31,6 +31,27 @@ private class InspectorNativeSoqlRunnerTest {
     }
 
     @IsTest
+    static void flattensParentRelationshipFieldsIntoDotPathKeys() {
+        Account acc = new Account(Name = 'Parent Co', Industry = 'Technology');
+        insert acc;
+        Contact con = new Contact(LastName = 'Smith', AccountId = acc.Id);
+        insert con;
+
+        Test.startTest();
+        InspectorNativeSoqlRunner.SoqlQueryResult result = InspectorNativeSoqlRunner.runQuery(
+            'SELECT Id, LastName, Account.Name, Account.Industry FROM Contact WHERE Id = \'' + con.Id + '\''
+        );
+        Test.stopTest();
+
+        System.assertEquals('Contact', result.objectApiName);
+        System.assert(result.fieldApiNames.contains('Account.Name'), 'Flattened dot-path key should be reported');
+        System.assert(result.fieldApiNames.contains('Account.Industry'), 'Flattened dot-path key should be reported');
+        System.assertEquals('Parent Co', (String) result.records[0].get('Account.Name'));
+        System.assertEquals('Technology', (String) result.records[0].get('Account.Industry'));
+        System.assertEquals('Smith', (String) result.records[0].get('LastName'));
+    }
+
+    @IsTest
     static void throwsOnAnInvalidQuery() {
         Boolean threw = false;
         Test.startTest();

@@ -1,4 +1,4 @@
-import { buildFieldModelForEdit, serializeGqlValue } from 'c/inspectorNativeSharedUtils';
+import { buildFieldModelForEdit, buildRelationshipFieldModel, serializeGqlValue } from 'c/inspectorNativeSharedUtils';
 
 describe('serializeGqlValue', () => {
   it('serializes null/undefined/empty-string values as the null literal', () => {
@@ -54,5 +54,18 @@ describe('buildFieldModelForEdit', () => {
 
   it('returns null for a field not present in objectInfo', () => {
     expect(buildFieldModelForEdit('NotAField', objectInfo, {}, {})).toBeNull();
+  });
+});
+
+describe('buildRelationshipFieldModel', () => {
+  it('builds an always-editable-false text column labeled with the dotted apiName', () => {
+    const model = buildRelationshipFieldModel('Account.Name');
+    expect(model).toMatchObject({ apiName: 'Account.Name', label: 'Account.Name', editable: false, type: 'text' });
+  });
+
+  it('is never required, regardless of the related field', () => {
+    const model = buildRelationshipFieldModel('Account.Industry');
+    expect(model.required).toBe(false);
+    expect(model.apiRequired).toBe(false);
   });
 });

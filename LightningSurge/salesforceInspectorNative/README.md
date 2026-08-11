@@ -55,12 +55,13 @@ against its own known Id rather than a create.
 - **Query Records tab** - type a SOQL query and run it. The results render in the same Field
   View/Table View grid, with a toolbar trimmed down to what actually applies to already-queried
   records: **Export CSV** (the current grid contents, including any unsaved edits - not tied to a
-  save attempt the way the results screen's own CSV export is) and the Field View/Table View
-  toggle. Match Fields, Manage Columns, Download CSV Template, Import CSV, and Paste from Excel are
-  all Create-Records-specific concepts that don't apply here (every row already has a known
-  record - there's nothing to match, no layout columns to manage, nothing to import into an
-  already-populated grid) and aren't shown. The "Ignore layout-required fields" checkbox is hidden
-  for the same reason - there's no layout involved in query mode, so it would always be a no-op.
+  save attempt the way the results screen's own CSV export is), **Delete Selected** (see below),
+  and the Field View/Table View toggle. Match Fields, Manage Columns, Download CSV Template, Import
+  CSV, and Paste from Excel are all Create-Records-specific concepts that don't apply here (every
+  row already has a known record - there's nothing to match, no layout columns to manage, nothing
+  to import into an already-populated grid) and aren't shown. The "Ignore layout-required fields"
+  checkbox is hidden for the same reason - there's no layout involved in query mode, so it would
+  always be a no-op.
 
   **Results open read-only ("View Only") by default, to prevent accidental edits.** Click **Edit**
   to make the grid editable; click it again (now labeled **View Only**) to switch back - any
@@ -71,10 +72,25 @@ against its own known Id rather than a create.
   saves as an **update** against the record it was queried from (its own Id, known up front - no
   matching, no risk of accidentally creating a duplicate). Column order is alphabetical (with `Id`
   first) rather than necessarily matching your SELECT clause's written order - Apex's `Map`
-  iteration order isn't guaranteed to preserve it, and this wasn't worth parsing SOQL text to
-  solve. Only flat, non-relationship SELECT clauses are supported (no `Account.Name`-style
-  traversal, no subqueries) - this app edits/saves single-object rows, so a parent's field couldn't
-  be saved back through it anyway.
+  iteration order isn't guaranteed to preserve it, and this wasn't worth parsing SOQL text to solve.
+
+  **Parent relationship traversal is supported, read-only** (e.g. `SELECT Id, Name, Account.Name,
+  Account.Owner.Name FROM Contact`) - `InspectorNativeSoqlRunner` flattens each queried record's
+  populated fields (`SObject.getPopulatedFieldsAsMap()`, which nests a traversed parent as a related
+  SObject rather than a flat key) into dot-path keys like `Account.Name`, to arbitrary depth, so the
+  grid can treat them like any other queried field. They render as plain read-only text columns -
+  there's no update mutation path back to a related record's field through this object's own row,
+  so they're never editable and never included in a save. **Child-relationship subqueries** (e.g.
+  `(SELECT Id FROM Contacts)`) are still not supported - a list of related records can't flatten
+  into one scalar column, and this grid only ever renders one row per top-level queried record.
+
+  **Delete Selected** bulk-deletes the checked rows via a real, immediate GraphQL mutation (batched
+  the same way saves are) - unlike the per-row trash icon next to each row, which only removes it
+  from the local grid. Only available in Edit mode (same gating as every other edit here), and
+  always asks for confirmation first - deleting a record can't be undone, and this is the only
+  action in this whole app that writes to the org the moment you click it rather than staging a
+  change for you to review and Save. Deleted rows disappear from the grid immediately and report
+  into the same results screen a save would, tagged "Deleted" instead of "Created"/"Updated".
 - **Field Creator tab** - pick an object, then build a compact table of fields to create: one row
   per field with just Label, API Name, and Type visible, matching Salesforce Inspector Reloaded's
   own layout. Everything else lives behind two per-row buttons instead of cluttering the row:

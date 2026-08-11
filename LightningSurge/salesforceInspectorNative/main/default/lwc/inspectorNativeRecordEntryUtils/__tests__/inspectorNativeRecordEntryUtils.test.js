@@ -12,11 +12,13 @@ jest.mock(
 
 import {
   buildAllFieldsColumnGroups,
+  buildBulkDeleteMutation,
   buildColumnGroups,
   buildMatchQuery,
   buildRecordTypeQuery,
   buildRequiredFieldsColumnGroups,
   buildUpsertMutation,
+  extractDeleteResults,
   extractMatchedIds,
   extractRecordTypes,
   extractSaveResults,
@@ -280,6 +282,43 @@ describe('extractSaveResults', () => {
     const [row1] = extractSaveResults(result, [rows[0]], new Map());
     expect(row1.success).toBe(false);
     expect(row1.errorMessage).toBe('Unknown error saving this row');
+  });
+});
+
+describe('buildBulkDeleteMutation', () => {
+  it('builds a Delete alias per row, keyed by the row\'s existingRecordId', () => {
+    const mutation = buildBulkDeleteMutation('Lead', [
+      { clientId: 1, existingRecordId: '00Q1' },
+      { clientId: 2, existingRecordId: '00Q2' }
+    ]);
+    expect(mutation).toContain('row_1: LeadDelete(input: { Id: "00Q1" }) { Id }');
+    expect(mutation).toContain('row_2: LeadDelete(input: { Id: "00Q2" }) { Id }');
+  });
+});
+
+describe('extractDeleteResults', () => {
+  const rows = [{ clientId: 1 }, { clientId: 2 }];
+
+  it('reports success with the deleted record Id', () => {
+    const result = { data: { uiapi: { row_1: { Id: '00Q1' } } }, errors: [] };
+    const [row1] = extractDeleteResults(result, [rows[0]]);
+    expect(row1).toEqual({ clientId: 1, success: true, recordId: '00Q1' });
+  });
+
+  it('correlates a GraphQL error back to its row via the alias in errors[].path', () => {
+    const result = {
+      data: { uiapi: {} },
+      errors: [{ message: 'ENTITY_IS_DELETED', path: ['uiapi', 'row_2'] }]
+    };
+    const [, row2] = extractDeleteResults(result, rows);
+    expect(row2).toEqual({ clientId: 2, success: false, errorMessage: 'ENTITY_IS_DELETED' });
+  });
+
+  it('falls back to a generic message when no matching error is found', () => {
+    const result = { data: { uiapi: {} }, errors: [] };
+    const [row1] = extractDeleteResults(result, [rows[0]]);
+    expect(row1.success).toBe(false);
+    expect(row1.errorMessage).toBe('Unknown error deleting this row');
   });
 });
 

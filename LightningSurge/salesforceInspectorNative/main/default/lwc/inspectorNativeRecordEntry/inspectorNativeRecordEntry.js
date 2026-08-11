@@ -10,11 +10,13 @@ import {
 } from 'c/inspectorNativeCsvUtils';
 import {
   buildAllFieldsColumnGroups,
+  buildBulkDeleteMutation,
   buildColumnGroups,
   buildMatchQuery,
   buildRecordTypeQuery,
   buildRequiredFieldsColumnGroups,
   buildUpsertMutation,
+  extractDeleteResults,
   extractMatchedIds,
   extractRecordTypes,
   extractSaveResults,
@@ -26,11 +28,13 @@ import {
 import { InspectorNativeQueryBridge } from 'c/inspectorNativeQueryBridge';
 import {
   buildFieldModelForEdit,
+  buildRelationshipFieldModel,
   getCreateContext,
   getInitialFormValues,
   navigateToRecord,
   showToast
 } from 'c/inspectorNativeSharedUtils';
+import LightningConfirm from 'lightning/confirm';
 import { executeMutation, graphql } from 'lightning/graphql';
 import { NavigationMixin } from 'lightning/navigation';
 import { getObjectInfo, getPicklistValuesByRecordType } from 'lightning/uiObjectInfoApi';
@@ -38,7 +42,7 @@ import { getRecordCreateDefaults } from 'lightning/uiRecordApi';
 import { api, LightningElement, wire } from 'lwc';
 
 // Bump on every change so it's visible which deployed version is running in the org.
-const COMPONENT_VERSION = 'v3.1.0';
+const COMPONENT_VERSION = 'v3.2.0';
 
 const DEFAULT_INITIAL_ROW_COUNT = 1;
 const DEFAULT_MAX_ROWS = 200;
@@ -60,6 +64,7 @@ const REQUIRED_ONLY_OPTION_VALUE = '__REQUIRED_ONLY__';
 const CSV_PREVIEW_ROW_COUNT = 3;
 const VIEW_MODE_FIELD = 'field';
 const VIEW_MODE_TABLE = 'table';
+const SUCCESS_STATUS_LABEL_BY_OPERATION = { create: 'Created', update: 'Updated', delete: 'Deleted' };
 
 /**
  * Object-agnostic inline surface for creating (or upserting, when match-key fields are selected)
@@ -146,6 +151,7 @@ export default class InspectorNativeRecordEntry extends NavigationMixin(Lightnin
   @api batchSize = DEFAULT_BATCH_SIZE;
 
   isSaving = false;
+  isDeleting = false;
   isLoadingMatchPreview = false;
   errorMessage = '';
 
@@ -176,6 +182,7 @@ export default class InspectorNativeRecordEntry extends NavigationMixin(Lightnin
   _hiddenColumnApiNames = new Set();
   _viewMode = VIEW_MODE_FIELD;
   _isEditMode = false;
+  _selectedClientIds = new Set();
 
   connectedCallback() {
     // objectApiName is interpolated unescaped into every GraphQL query/mutation this component
@@ -251,9 +258,16 @@ export default class InspectorNativeRecordEntry extends NavigationMixin(Lightnin
     }
   }
 
+  // A queryFieldApiName containing "." is a relationship-traversal field (e.g. "Account.Name",
+  // flattened server-side by InspectorNativeSoqlRunner from SOQL dot notation) rather than a real
+  // field on this object's own objectInfo - it can't go through buildFieldModelForEdit (which looks
+  // the apiName up in objectInfo.fields and would just filter it out), so it gets its own always-
+  // read-only column model instead.
   rebuildQueryColumns(objectInfo) {
     const columns = this.queryFieldApiNames
-      .map((apiName) => buildFieldModelForEdit(apiName, objectInfo, {}, this._picklistData))
+      .map((apiName) =>
+        apiName.includes('.') ? buildRelationshipFieldModel(apiName) : buildFieldModelForEdit(apiName, objectInfo, {}, this._picklistData)
+      )
       .filter(Boolean);
     this._columnGroups = columns.length ? [{ id: 'group-query', heading: 'Queried Fields', columnCount: columns.length, columns }] : [];
     this._flatColumns = columns;
@@ -504,10 +518,17 @@ export default class InspectorNativeRecordEntry extends NavigationMixin(Lightnin
       .map((row) => ({ ...row, values: { ...row.originalValues }, touched: false, errorMessage: '' }));
     this._isEditMode = false;
     this._validationErrors = [];
+    // Selection is only actionable in Edit mode (see isDeleteSelectedDisabled) - clear it along
+    // with the rest of the discarded edit-mode state rather than leaving a stale selection behind
+    // for the next time Edit is turned back on.
+    this._selectedClientIds = new Set();
   }
 
+  // Query mode adds a leading row-selection checkbox column for bulk delete, on top of the
+  // existing row-action (remove) column - Create mode has no persisted records to delete, so it
+  // never gets this extra column.
   get columnCountWithAction() {
-    return this.visibleFlatColumns.length + 1;
+    return this.visibleFlatColumns.length + (this.queryMode ? 2 : 1);
   }
 
   get hasNoRows() {
@@ -570,6 +591,7 @@ export default class InspectorNativeRecordEntry extends NavigationMixin(Lightnin
       clientId: row.clientId,
       errorRowKey: `${row.clientId}-error`,
       errorMessage: row.errorMessage,
+      selected: this._selectedClientIds.has(row.clientId),
       cells: this._flatColumns
         .filter((column) => visibleApiNames.has(column.apiName))
         .map((column) => ({
@@ -618,6 +640,45 @@ export default class InspectorNativeRecordEntry extends NavigationMixin(Lightnin
     return this.isViewOnly;
   }
 
+  // Bulk delete (query mode only - see the queryMode-gated selection column in the markup):
+  // selection/delete are only actionable in Edit mode, same as the per-row remove icon above, and
+  // while another save/delete isn't already in flight (both mutate the same _rows/_saveResults
+  // state, so overlapping them isn't safe).
+  get selectedRowCount() {
+    return this._selectedClientIds.size;
+  }
+
+  get isAllRowsSelected() {
+    return this._rows.length > 0 && this._rows.every((row) => this._selectedClientIds.has(row.clientId));
+  }
+
+  get isRowSelectionDisabled() {
+    return this.isViewOnly || this.isSaving || this.isDeleting;
+  }
+
+  get deleteSelectedButtonLabel() {
+    return this.selectedRowCount ? `Delete Selected (${this.selectedRowCount})` : 'Delete Selected';
+  }
+
+  get isDeleteSelectedDisabled() {
+    return this.isRowSelectionDisabled || this.selectedRowCount === 0;
+  }
+
+  handleSelectAllToggle(event) {
+    this._selectedClientIds = event.target.checked ? new Set(this._rows.map((row) => row.clientId)) : new Set();
+  }
+
+  handleRowSelectToggle(event) {
+    const clientId = Number(event.currentTarget.dataset.rowId);
+    const next = new Set(this._selectedClientIds);
+    if (event.target.checked) {
+      next.add(clientId);
+    } else {
+      next.delete(clientId);
+    }
+    this._selectedClientIds = next;
+  }
+
   get isMappingState() {
     return this._uiState === UI_STATE_MAPPING;
   }
@@ -660,7 +721,7 @@ export default class InspectorNativeRecordEntry extends NavigationMixin(Lightnin
   }
 
   get isSaveDisabled() {
-    return this.isSaving || this.touchedRowCount === 0;
+    return this.isSaving || this.isDeleting || this.touchedRowCount === 0;
   }
 
   // isLoadingMatchPreview holds the query bridge's single slot (see loadMatchPreview) - letting
@@ -727,9 +788,16 @@ export default class InspectorNativeRecordEntry extends NavigationMixin(Lightnin
   get saveResults() {
     return this._saveResults.map((result) => ({
       ...result,
-      statusLabel: result.success ? (result.operation === 'update' ? 'Updated' : 'Created') : 'Failed',
+      statusLabel: result.success ? SUCCESS_STATUS_LABEL_BY_OPERATION[result.operation] : 'Failed',
       statusClass: result.success ? 'slds-text-color_success' : 'slds-text-color_error'
     }));
+  }
+
+  // The results screen (UI_STATE_RESULTS) is shared between a save attempt (create/update) and a
+  // bulk delete - _saveResults is always reset to [] before either starts, so by the time this
+  // screen is showing anything, every entry in it is homogeneously one or the other.
+  get resultsHeading() {
+    return this._saveResults.length && this._saveResults.every((result) => result.operation === 'delete') ? 'Delete results' : 'Save results';
   }
 
   get allOrNothingIncomplete() {
@@ -767,6 +835,7 @@ export default class InspectorNativeRecordEntry extends NavigationMixin(Lightnin
     const resultRows = this._saveResults.map((result) => ({
       values: result.values,
       status: result.success ? 'Success' : 'Failed',
+      name: result.recordName,
       detail: result.detail
     }));
     const csv = buildResultsCsv(this._flatColumns, resultRows);
@@ -1120,6 +1189,72 @@ export default class InspectorNativeRecordEntry extends NavigationMixin(Lightnin
       .trim();
   }
 
+  // Bulk delete: a real, immediate, irreversible write against the org (unlike the per-row remove
+  // icon, which only ever touches the local grid) - gated behind an explicit confirmation dialog
+  // before anything is sent, on top of the Edit-mode-only gating isDeleteSelectedDisabled already
+  // applies.
+  async handleDeleteSelectedClick() {
+    if (this.isDeleteSelectedDisabled) return;
+    const count = this.selectedRowCount;
+    const confirmed = await LightningConfirm.open({
+      label: 'Delete Records',
+      message: `Delete ${count} record${count === 1 ? '' : 's'}? This can't be undone.`,
+      variant: 'headerless'
+    });
+    if (!confirmed) return;
+    await this.deleteSelectedRows();
+  }
+
+  async deleteSelectedRows() {
+    const rowsToDelete = this._rows.filter((row) => this._selectedClientIds.has(row.clientId) && row.existingRecordId);
+    if (rowsToDelete.length === 0) return;
+
+    const rowNumberByClientId = new Map(this._rows.map((row, index) => [row.clientId, index + 1]));
+    const valuesByClientId = new Map(rowsToDelete.map((row) => [row.clientId, row.values]));
+
+    this.isDeleting = true;
+    this.errorMessage = '';
+    this._allOrNothingIncomplete = false;
+    this._saveResults = [];
+    try {
+      for (let i = 0; i < rowsToDelete.length; i += this.batchSize) {
+        const batch = rowsToDelete.slice(i, i + this.batchSize);
+        const mutation = buildBulkDeleteMutation(this._layoutContext.objectApiName, batch);
+        // eslint-disable-next-line no-await-in-loop
+        const result = await executeMutation({ query: mutation });
+        const batchResults = extractDeleteResults(result, batch);
+        this.applyDeleteResults(batchResults, rowNumberByClientId, valuesByClientId);
+      }
+    } catch (error) {
+      this.setError(error);
+    } finally {
+      this.isDeleting = false;
+      if (this._saveResults.length > 0) {
+        this._uiState = UI_STATE_RESULTS;
+      }
+    }
+  }
+
+  applyDeleteResults(results, rowNumberByClientId, valuesByClientId) {
+    const succeededClientIds = new Set(results.filter((r) => r.success).map((r) => r.clientId));
+
+    this._rows = this._rows.filter((row) => !succeededClientIds.has(row.clientId));
+    this._selectedClientIds = new Set([...this._selectedClientIds].filter((clientId) => !succeededClientIds.has(clientId)));
+
+    this._saveResults = [
+      ...this._saveResults,
+      ...results.map((result) => ({
+        clientId: result.clientId,
+        rowNumber: rowNumberByClientId.get(result.clientId),
+        operation: 'delete',
+        success: result.success,
+        detail: result.success ? result.recordId : result.errorMessage,
+        recordName: this.getRecordDisplayName(valuesByClientId.get(result.clientId)),
+        values: valuesByClientId.get(result.clientId)
+      }))
+    ];
+  }
+
   handleBackToGrid() {
     this._uiState = UI_STATE_GRID;
   }
@@ -1136,6 +1271,9 @@ export default class InspectorNativeRecordEntry extends NavigationMixin(Lightnin
     const updatedRecordIds = this._saveResults
       .filter((result) => result.success && result.operation === 'update')
       .map((result) => result.detail);
-    this.dispatchEvent(new CustomEvent('done', { detail: { createdRecordIds, updatedRecordIds } }));
+    const deletedRecordIds = this._saveResults
+      .filter((result) => result.success && result.operation === 'delete')
+      .map((result) => result.detail);
+    this.dispatchEvent(new CustomEvent('done', { detail: { createdRecordIds, updatedRecordIds, deletedRecordIds } }));
   }
 }

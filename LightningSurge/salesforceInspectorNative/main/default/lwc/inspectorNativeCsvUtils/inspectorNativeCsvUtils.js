@@ -124,18 +124,21 @@ export function buildCsvTemplate(columns) {
 
 /**
  * Builds a CSV report of a save attempt: one row per submitted record, with the same field
- * columns as the grid that was saved, plus Status ("Success"/"Failed") and Detail (the created/
- * updated record Id, or the failure reason) columns.
+ * columns as the grid that was saved, plus Status ("Success"/"Failed"), Name (the record's own
+ * name field(s), e.g. Account.Name or Contact's FirstName+LastName - same value shown in the
+ * results table's Name column), and Detail (the created/updated record Id, or the failure reason)
+ * columns.
  * @param {Array} columns - The grid's column models, [{ apiName, ... }].
- * @param {Array} resultRows - [{ values: {apiName: value}, status, detail }] per submitted row.
+ * @param {Array} resultRows - [{ values: {apiName: value}, status, name, detail }] per submitted row.
  */
 export function buildResultsCsv(columns, resultRows) {
-  const headers = [...columns.map((column) => column.apiName), 'Status', 'Detail'];
+  const headers = [...columns.map((column) => column.apiName), 'Status', 'Name', 'Detail'];
   const lines = [headers.map(escapeCsvField).join(';')];
   resultRows.forEach((row) => {
     const cells = [
       ...columns.map((column) => escapeCsvField(String(row.values[column.apiName] ?? ''))),
       escapeCsvField(row.status),
+      escapeCsvField(String(row.name ?? '')),
       escapeCsvField(String(row.detail ?? ''))
     ];
     lines.push(cells.join(';'));

@@ -184,6 +184,42 @@ export function extractSaveResults(result, rows, matchedIdByClientId) {
   });
 }
 
+/**
+ * Builds a single GraphQL mutation that deletes every given row via an aliased
+ * uiapi.{Object}Delete field per row, so a whole batch is submitted in one request - same
+ * multi-alias-per-request shape as buildUpsertMutation, just Delete instead of Create/Update.
+ * Every row must already have a known existingRecordId (query mode's queried-record Id) - deleting
+ * an unsaved, never-persisted row makes no sense and isn't attempted.
+ */
+export function buildBulkDeleteMutation(objectApiName, rows) {
+  const rowMutations = rows
+    .map((row) => `row_${row.clientId}: ${objectApiName}Delete(input: { Id: "${row.existingRecordId}" }) { Id }`)
+    .join('\n        ');
+  return gql`
+    mutation DeleteRecords {
+      uiapi {
+        ${rowMutations}
+      }
+    }
+  `;
+}
+
+/**
+ * Correlates a bulk delete mutation result back to the submitted rows, using the same
+ * "row_{clientId}" alias/error-path convention as extractSaveResults.
+ */
+export function extractDeleteResults(result, rows) {
+  const data = result?.data?.uiapi ?? {};
+  const errors = result?.errors ?? [];
+  return rows.map((row) => {
+    const alias = `row_${row.clientId}`;
+    const deletedId = data[alias]?.Id;
+    if (deletedId) return { clientId: row.clientId, success: true, recordId: deletedId };
+    const matchedError = errors.find((err) => (err.path || []).includes(alias));
+    return { clientId: row.clientId, success: false, errorMessage: matchedError?.message ?? 'Unknown error deleting this row' };
+  });
+}
+
 function buildRowMatchFilter(matchFieldApiNames, columns, row) {
   const columnsByApiName = new Map(columns.map((c) => [c.apiName, c]));
   const conditions = matchFieldApiNames.map((apiName) => {

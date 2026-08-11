@@ -176,28 +176,31 @@ describe('buildCsvTemplate', () => {
 });
 
 describe('buildResultsCsv', () => {
-  it('builds a header row of column apiNames plus Status and Detail', () => {
+  it('builds a header row of column apiNames plus Status, Name, and Detail', () => {
     const csv = buildResultsCsv([{ apiName: 'Name' }], []);
-    expect(csv.split('\r\n')[0]).toBe('Name;Status;Detail');
+    expect(csv.split('\r\n')[0]).toBe('Name;Status;Name;Detail');
   });
 
-  it('builds one data row per result, with values/status/detail', () => {
+  it('builds one data row per result, with values/status/name/detail', () => {
     const csv = buildResultsCsv(
       [{ apiName: 'Name' }, { apiName: 'Email' }],
-      [{ values: { Name: 'Acme', Email: 'a@b.com' }, status: 'Success', detail: '001xx0000000001' }]
+      [{ values: { Name: 'Acme', Email: 'a@b.com' }, status: 'Success', name: 'Acme', detail: '001xx0000000001' }]
     );
     const lines = csv.trim().split('\r\n');
-    expect(lines[1]).toBe('Acme;a@b.com;Success;001xx0000000001');
+    expect(lines[1]).toBe('Acme;a@b.com;Success;Acme;001xx0000000001');
   });
 
   it('escapes values that contain the delimiter', () => {
-    const csv = buildResultsCsv([{ apiName: 'Name' }], [{ values: { Name: 'Acme;Inc' }, status: 'Failed', detail: 'REQUIRED_FIELD_MISSING' }]);
-    expect(csv.trim().split('\r\n')[1]).toBe('"Acme;Inc";Failed;REQUIRED_FIELD_MISSING');
+    const csv = buildResultsCsv(
+      [{ apiName: 'Name' }],
+      [{ values: { Name: 'Acme;Inc' }, status: 'Failed', name: 'Acme;Inc', detail: 'REQUIRED_FIELD_MISSING' }]
+    );
+    expect(csv.trim().split('\r\n')[1]).toBe('"Acme;Inc";Failed;"Acme;Inc";REQUIRED_FIELD_MISSING');
   });
 
   it('renders a missing value as an empty cell rather than "null"/"undefined"', () => {
     const csv = buildResultsCsv([{ apiName: 'Name' }], [{ values: {}, status: 'Failed', detail: 'Some error' }]);
-    expect(csv.trim().split('\r\n')[1]).toBe(';Failed;Some error');
+    expect(csv.trim().split('\r\n')[1]).toBe(';Failed;;Some error');
   });
 });
 

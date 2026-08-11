@@ -196,6 +196,31 @@ export function buildFieldModels(layoutItem, objectInfo, formValues, picklistDat
 }
 
 /**
+ * Builds a read-only column model for a relationship-traversal field queried via SOQL dot notation
+ * (e.g. "Account.Name") - not a real field on this object's own objectInfo.fields, so it can't go
+ * through buildFieldModelForEdit. Always non-editable: there's no update mutation path back to a
+ * related record's field through this object's own row, so it's rendered as a plain read-only text
+ * field regardless of what the related field's real type is - good enough for display, which is all
+ * a traversed field can ever be here. Label is just the dotted apiName itself (e.g. "Account.Name")
+ * rather than a resolved field label - the related object's own field labels aren't reliably
+ * knowable client-side without fetching that object's objectInfo too, and this is clear enough for
+ * an admin tool.
+ */
+export function buildRelationshipFieldModel(apiName) {
+  return {
+    apiName,
+    label: apiName,
+    required: false,
+    apiRequired: false,
+    editable: false,
+    dataType: 'String',
+    type: 'text',
+    value: null,
+    step: null
+  };
+}
+
+/**
  * Serializes a raw form value into a GraphQL literal for the given field data type.
  */
 export function serializeGqlValue(dataType, value) {
