@@ -3,6 +3,19 @@
 A collection of independent Lightning Web Component packages for Salesforce, built around the UI
 API GraphQL wire adapter (`lightning/graphql`) instead of Apex wherever possible.
 
+## Who this is for
+
+Built for **enterprise users on managed, locked-down devices** - the kind of environment where
+installing Data Loader or a browser extension like Salesforce Inspector Reloaded isn't an option at
+all, whether that's IT policy, a lack of local admin rights, or a browser extension allowlist that
+doesn't include it. Every tool here runs entirely as Salesforce metadata deployed straight into the
+org - a Lightning app (`salesforceInspectorNative`) launched from the App Launcher like any other
+tab, or a Lightning page component (`relatedListReloaded`) dropped onto a record page in App
+Builder. Nothing to install locally, nothing running outside Salesforce's own domain, nothing that
+needs local admin rights or an approved-extensions list to get through - nothing to explain to IT
+beyond "this is a deployed managed component," the same conversation as any other custom Lightning
+page or app.
+
 Each topic — a feature or component family — lives in its own top-level folder and is
 independently deployable: no topic depends on another topic's folder. That's a deliberate
 constraint, not an accident: `sf project deploy start --source-dir <topic>` should always work on
@@ -90,6 +103,43 @@ Deploy everything registered in `sfdx-project.json`:
 ```bash
 sf project deploy start
 ```
+
+Requires the Salesforce CLI (`sf`) authenticated against the target org (`sf org login web
+--alias myorg`, then `--target-org myorg` on the deploy command, or `sf config set
+target-org=myorg` to avoid repeating it). See "Salesforce DX basics" below if the CLI itself isn't
+set up yet.
+
+### Salesforce Inspector Native
+
+1. Deploy the package:
+   ```bash
+   sf project deploy start --source-dir salesforceInspectorNative
+   ```
+   This also deploys its bundled **Salesforce Inspector Native** permission set.
+2. Assign that permission set to whoever should use the app: Setup → Permission Sets →
+   "Salesforce Inspector Native" → Manage Assignments → Add Assignment.
+3. **Optional, Field Creator tab only**: add a Remote Site Setting so its Tooling API callout can
+   reach the org's own domain. Skip this if you don't plan to use Field Creator - no other tab needs
+   it. Full steps, permission-by-tab breakdown (a few tabs need org-level system permissions like
+   "Customize Application" beyond the bundled permission set - real Salesforce platform rules, not
+   this app's own restriction), and which tabs need what are in
+   [`salesforceInspectorNative/README.md`](salesforceInspectorNative/README.md#setting-it-up).
+4. App Launcher → search "Salesforce Inspector Native".
+
+### Related List Reloaded
+
+1. Deploy the package (no permission set, no Remote Site Setting, no extra system permission - see
+   [`relatedListReloaded/README.md`](relatedListReloaded/README.md#setting-it-up) for why):
+   ```bash
+   sf project deploy start --source-dir relatedListReloaded
+   ```
+2. Lightning App Builder → open the record page you want it on → drag **Related List Reloaded**
+   from the component palette onto the page.
+3. Set its **Relationship API Name** property to the child relationship to show (e.g. `Contacts`,
+   `Opportunities`, or a custom relationship name ending in `__r`) - the same thing you'd type
+   configuring the standard "Related List - Single" component. Optionally adjust **Rows Shown When
+   Collapsed** (default 4).
+4. Save and activate the page.
 
 ## Salesforce DX basics
 

@@ -78,6 +78,81 @@
                 </th>
               </template>
             </tr>
+            <tr class="slds-line-height_reset object-permission-row">
+              <th scope="col" class="matrix-field-col">Object Access</th>
+              <template for:each={objectPermissionHeaderCells} for:item="cell">
+                <th key={cell.permissionSetId} class={cell.cellClass}>
+                  <div class="object-permission-cell">
+                    <span class="cell-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={cell.readAccess}
+                        data-permission-set-id={cell.permissionSetId}
+                        data-field="read"
+                        onchange={handleObjectPermissionToggle}
+                        aria-label="Object Read"
+                      />
+                      <span class="cell-checkbox-label">R</span>
+                    </span>
+                    <span class="cell-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={cell.createAccess}
+                        data-permission-set-id={cell.permissionSetId}
+                        data-field="create"
+                        onchange={handleObjectPermissionToggle}
+                        aria-label="Object Create"
+                      />
+                      <span class="cell-checkbox-label">C</span>
+                    </span>
+                    <span class="cell-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={cell.editAccess}
+                        data-permission-set-id={cell.permissionSetId}
+                        data-field="edit"
+                        onchange={handleObjectPermissionToggle}
+                        aria-label="Object Edit"
+                      />
+                      <span class="cell-checkbox-label">E</span>
+                    </span>
+                    <span class="cell-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={cell.deleteAccess}
+                        data-permission-set-id={cell.permissionSetId}
+                        data-field="delete"
+                        onchange={handleObjectPermissionToggle}
+                        aria-label="Object Delete"
+                      />
+                      <span class="cell-checkbox-label">D</span>
+                    </span>
+                    <span class="cell-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={cell.viewAllAccess}
+                        data-permission-set-id={cell.permissionSetId}
+                        data-field="viewAll"
+                        onchange={handleObjectPermissionToggle}
+                        aria-label="View All"
+                      />
+                      <span class="cell-checkbox-label">VA</span>
+                    </span>
+                    <span class="cell-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={cell.modifyAllAccess}
+                        data-permission-set-id={cell.permissionSetId}
+                        data-field="modifyAll"
+                        onchange={handleObjectPermissionToggle}
+                        aria-label="Modify All"
+                      />
+                      <span class="cell-checkbox-label">MA</span>
+                    </span>
+                  </div>
+                </th>
+              </template>
+            </tr>
           </thead>
           <tbody>
             <template for:each={matrixRows} for:item="row">

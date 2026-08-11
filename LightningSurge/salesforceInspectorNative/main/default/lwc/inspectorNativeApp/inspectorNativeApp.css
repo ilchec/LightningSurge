@@ -9,6 +9,14 @@
   flex-shrink: 0;
 }
 
+.app-version {
+  margin-top: 0.75rem;
+  padding: 0 1rem;
+  font-size: 0.75rem;
+  color: var(--lwc-colorTextWeak, #706e6b);
+  text-align: center;
+}
+
 .content-column {
   flex: 1;
   min-width: 0;

@@ -14,9 +14,13 @@ that was hard to scan as a single list):
 Which tabs actually show up is configurable per org (see "Tab visibility" below) - the section
 grouping itself is a fixed, hardcoded client-side concept (not admin-configurable the way
 `Is_Enabled__c` is); a section with nothing currently enabled in it simply doesn't render its
-header. **Field Creator ships disabled by default**, since its one write path (the Tooling API
-field-creation callout) is still unresolved as of this writing; see its own section below for the
-full, increasingly long story.
+header. **Field Creator now ships enabled by default again, and the fix is confirmed working** - it
+shipped disabled for a long stretch while its one write path (the Tooling API field-creation
+callout) had an unresolved missing-field-data bug; the fix (sending the field spec list as a JSON
+string instead of a typed `List<T>` Apex-action parameter, parsed with `JSON.deserialize()` inside
+the method) was applied after the same failure shape was independently confirmed live for a
+different tab (FLS Matrix, see its own section below), and has since been confirmed live for Field
+Creator itself too. See its own section for the full story and the diagnostics still wired in.
 
 ## Fully standalone
 
@@ -148,13 +152,14 @@ against its own known Id rather than a create.
   manually setting up a Connected App/Auth Provider/Named Credential (the officially-recommended but
   much heavier alternative). Rendered once per deploy call, not once per field.
 
-  **Field Creator is disabled by default (see "Tab visibility" below) because this last piece is
-  still broken, unresolved despite several rounds of fixes.** The symptom: `deployFields`'s
-  `List<InspectorNativeFieldSpec>` parameter arrives in Apex as a list of the right length, every
-  element present, every property on every element `null` - despite the browser's actual outgoing
-  network request (verified directly in DevTools, not just client-side logging) being fully and
-  correctly populated. Three independent, individually well-motivated fixes were tried and each
-  had *zero* effect on the symptom:
+  **Field Creator shipped disabled by default for a long stretch because this last piece was
+  broken, unresolved despite several rounds of fixes - it's re-enabled now, and the fix is
+  confirmed working live.** The symptom:
+  `deployFields`'s `List<InspectorNativeFieldSpec>` parameter arrived in Apex as a list of the
+  right length, every element present, every property on every element `null` - despite the
+  browser's actual outgoing network request (verified directly in DevTools, not just client-side
+  logging) being fully and correctly populated. Four independent, individually well-motivated
+  fixes were tried; the first three had *zero* effect on the symptom:
   1. Renamed the property from `apiName` to `fieldApiName`, in case it collided with a reserved key
      in Lightning Data Service's own record-metadata format.
   2. Extracted the spec type from a nested inner class of `InspectorNativeFieldCreator` into its
@@ -166,15 +171,19 @@ against its own known Id rather than a create.
      platform quirk worth avoiding even though it didn't explain this bug.
   3. Renamed the method itself (`deployFields` → the current `deployCustomFields`), in case a stale
      server-side action-definition cache, keyed by class+method name, was the culprit.
+  4. **`deployCustomFields` now takes a plain `String` (`fieldSpecsJson`), not a typed
+     `List<InspectorNativeFieldSpec>` parameter, and parses it itself with `JSON.deserialize()`** -
+     bypassing whatever the automatic `List<T>` Apex-action parameter binding was doing wrong,
+     rather than working around it. **This fixed it, confirmed live** - the same fix independently
+     confirmed to address the *exact* same failure shape on a different tab entirely (FLS Matrix's
+     `saveFieldPermissions`, see that section below), then confirmed here too once actually
+     retested.
 
-  None of it moved the needle. Given the raw request body is confirmably correct, the remaining
-  candidates are outside this codebase - something in this specific org's environment (a
-  proxy/VPN/security policy modifying the request in transit) or a deeper, unconfirmed platform
-  quirk specific to `List<T>` parameter deserialization. **This is genuinely unresolved** - if
-  you're picking this back up, the two diagnostics still wired in (a `console.log` of the outgoing
-  `fieldSpecs` in `inspectorNativeFieldCreator.js`, and `JSON.serialize(spec)` embedded in
-  `InspectorNativeFieldCreator`'s "missing required field data" error message) are there to compare
-  both ends of the same call again without having to re-add them.
+  Both diagnostics used to reach this fix stay wired in rather than being removed now that it's
+  fixed - a `console.log` of the outgoing `fieldSpecs` in
+  `inspectorNativeFieldCreator.js`, and `JSON.serialize(spec)` embedded in
+  `InspectorNativeFieldCreator`'s "missing required field data" error message - both there to
+  compare both ends of the same call again, immediately, if this resurfaces.
 - **Permissions and Groups tab** - bulk-assign Permission Sets, Permission Set Groups, and Public
   Groups to a set of users in one operation. A 3-step inline flow (no modal): pick which Permission
   Sets/Permission Set Groups/Public Groups to assign from one searchable, type-filterable table;
@@ -245,13 +254,83 @@ against its own known Id rather than a create.
   grants on this object at once". Which fields are offered comes from
   `Schema.DescribeFieldResult.isPermissionable()` - the platform's own authority on whether a field
   supports FLS at all, so nothing offered here is ever a dead-end selection that would fail on Save.
-  **Select Permission Sets** narrows which permission sets render as matrix columns (every
-  assignable one shown by default) via a dual-listbox picker with a text filter plus Select All/
-  Deselect All - useful once an org has more permission sets than comfortably fit on screen at
-  once. The text filter narrows the picker's own list, and Select All/Deselect All are scoped to
+
+  **A second header row covers the object's own object-level access** (Read/Create/Edit/Delete/
+  View All/Modify All, via `ObjectPermissions`) per permission set - field-level security is only
+  meaningful alongside at least object-level Read, so a tool that only handled one half would leave
+  a real gap. Unlike field grants, an `ObjectPermissions` row is only ever upserted, never deleted,
+  even with every box unchecked - whether that row can be deleted via DML at all wasn't confirmed,
+  so unchecking everything just zeroes out its access flags instead, the same end state Setup's own
+  "Object Settings" page leaves things in. Checking a box enforces the same dependency chain Setup's
+  own UI does (Edit implies Read; Delete implies Read+Edit; View All implies Read; Modify All
+  implies Read+Edit+Delete) - client-side immediately, and re-applied server-side on Save too, so a
+  stale payload can never leave an inconsistent combination saved.
+
+  **Select Permission Sets** narrows which permission sets render as matrix columns via a
+  dual-listbox picker with a text filter plus Select All/Deselect All - **none are shown by
+  default** (a deliberate change from this tab's first pass, which showed every assignable
+  permission set immediately) - an org with many permission sets renders a much smaller, faster
+  initial table, and the empty state prompts you straight to the picker instead of an overwhelming
+  wall of columns. This only changes what's initially *displayed*, not what the initial Apex call
+  *fetches* - `getFieldPermissionMatrix` still reads every assignable permission set's grants in
+  one shot regardless of what's shown, so this is a real rendering-time win, not a network-payload
+  one. The text filter narrows the picker's own list, and Select All/Deselect All are scoped to
   whatever it currently shows - type "Sales" then Select All to show just the Sales-related
   permission sets as columns, for example. Purely a display filter either way - it never affects
   what Save submits, only which columns are currently visible to edit.
+
+  **A save reported "Success" while changing nothing in the database - confirmed live, not just
+  theorized**, using the two temporary diagnostics wired in for exactly this: the browser console
+  log of the outgoing `saveFieldPermissions` payload (in `inspectorNativeFlsMatrix.js`'s
+  `handleSaveClick`) showed a fully correct, well-formed grant list, while
+  `InspectorNativeFlsMatrix.saveFieldPermissions`'s own loud error (thrown instead of silently
+  skipping, echoing back the raw JSON Apex actually received) showed every grant arriving with an
+  unusable `permissionSetId` - the exact same shape as Field Creator's own deploy bug (see that
+  section above). `saveFieldPermissions` now takes `grantsJson`/`objectGrantsJson` as plain
+  `String` parameters and parses them itself with `JSON.deserialize()`, bypassing whatever the
+  automatic `List<T>` action-parameter binding was doing wrong - **confirmed fixed**: the same
+  change fixed Field Creator's `deployCustomFields` outright, and for FLS Matrix it fixed the
+  deserialization (the console log now shows a correct payload reaching the point of use), though
+  it exposed a second, previously-hidden issue described next.
+
+  **With the deserialization bug fixed, saves started failing loudly instead of silently - with no
+  usable error message.** The `upsert`/`delete` DML for field grants wasn't wrapped in a try/catch,
+  so an uncaught `DmlException` there was masked to a generic "Unknown error" by Salesforce's
+  default handling of non-`AuraHandledException` exceptions from `@AuraEnabled` methods - the same
+  masking behavior documented (and worked around) for `InspectorNativeRecordAccess`'s own invalid-
+  record-Id case above. Now caught and re-thrown as an `AuraHandledException` carrying the real
+  `DmlException` message, so whatever Salesforce is actually rejecting is visible instead of a dead
+  end.
+
+  **The real error, once visible, was `INVALID_CROSS_REFERENCE_KEY, invalid cross reference id: []`
+  on the `FieldPermissions` upsert - and three successive theories about it turned out wrong before
+  the actual cause surfaced.** First theory: the permission set lacked object-level Read on the same
+  object (matching the user's own original hypothesis, and a real, documented Salesforce dependency
+  in general) - `saveFieldPermissions` was changed to auto-grant it inline, before the field-level
+  DML, in the same method. Confirmed live NOT to fix it: splitting one shared `try`/`catch` into two
+  (so a failure says which statement actually threw, and echoes back the row it was trying to write)
+  proved the object-level upsert succeeded every time, yet the field-level upsert immediately after
+  it, in the same transaction, still failed identically. Second theory: the dependency check reads
+  only already-committed state, so the object-level grant needed a genuinely separate, already-
+  committed Apex transaction - the auto-grant was moved into its own `@AuraEnabled` method,
+  `ensureObjectReadForFieldGrants`, called and awaited by the client *before* `saveFieldPermissions`.
+  Also confirmed live NOT to fix it: the identical error persisted even with the object-level Read
+  grant genuinely committed via a separate round-trip beforehand.
+
+  **The actual cause, confirmed live via a third diagnostic** (echoing the target `PermissionSet`
+  record's own `Type`/`IsOwnedByProfile`/`Label` in the error message): the permission set in
+  question had `Type: "Standard"` - not `"Regular"`. Standard-type permission sets are the ones
+  Salesforce auto-provisions alongside a Permission Set License (typically from an installed package
+  or platform feature, e.g. an industry-cloud "persona" permission set); they're predefined by
+  Salesforce and **not editable by the org at all**, via any API - not a dependency this app could
+  ever satisfy or work around, however the object-level-Read grant was sequenced. `getAssignablePermissionSets`
+  (`InspectorNativeFieldPermissions`, shared by FLS Matrix and Field Creator's Permissions modal)
+  only ever filtered on `IsOwnedByProfile`, never on `Type`, so a Standard permission set was offered
+  right alongside genuinely editable ones with no way to tell them apart until Save failed. **The
+  actual fix**: that query now also filters `Type = 'Regular'`, so only permission sets this app can
+  genuinely edit are ever offered in the first place - the two auto-grant methods above stay in place
+  (real, working logic for a Regular permission set that genuinely lacks object-level Read yet), they
+  just were never what this specific failure needed.
 - **Org Chart tab** - browse the User `ManagerId` hierarchy: a "Reports To" node, the currently-
   centered user, and their Direct Reports, in the same one-hop-at-a-time, click-to-recenter
   hub-and-spoke layout Relationship Map already established in this app - applied to people instead
@@ -359,9 +438,9 @@ be remembered as a separate bookmark.
 
 A tab whose record doesn't exist, or whose config fails to load for any reason, **defaults to
 visible** - a missing record or a failed read should never silently hide a feature nobody meant to
-hide. Custom metadata records ship with intentional values instead: every tab enabled except
-**Field Creator**, which ships disabled given its currently-unresolved deploy issue (see its own
-section above).
+hide. Custom metadata records ship with every tab enabled, including **Field Creator** - it shipped
+disabled for a long stretch given its then-unresolved deploy issue, and is enabled again now on a
+fix believed to address it (see its own section above for the full, still slightly open story).
 
 ## Setting it up
 
@@ -448,8 +527,8 @@ section above).
 | `inspectorNativeRelationshipMapUtils` | Pure functions: building the parent (Reference fields)/child (`childRelationships`) lists and capping how many of each render. |
 | `inspectorNativeDataExport` | Data Export tab content: object/field picker, the paginated export loop (via `inspectorNativeQueryBridge`, the same reactive-wire-to-Promise bridge `inspectorNativeRecordEntry` uses), and the CSV download. |
 | `inspectorNativeDataExportUtils` | Pure functions: the field picker's option list (compound fields excluded), the paginated GraphQL export query, and extracting one page's rows. |
-| `inspectorNativeFlsMatrix` | FLS Matrix tab content: object picker + the field x permission-set grid, calling `InspectorNativeFlsMatrix` (Apex) for the initial read and the bulk save, via the pure `inspectorNativeFlsMatrixUtils`. |
-| `inspectorNativeFlsMatrixUtils` | Pure functions: merging server state with in-progress unsaved edits into a renderable grid, and the Edit-implies-Read checkbox toggle logic. |
+| `inspectorNativeFlsMatrix` | FLS Matrix tab content: object picker + the field x permission-set grid + the object-level-access header row, calling `InspectorNativeFlsMatrix` (Apex) for the initial read and the bulk save, via the pure `inspectorNativeFlsMatrixUtils`. |
+| `inspectorNativeFlsMatrixUtils` | Pure functions: merging server state with in-progress unsaved edits into a renderable grid, the Edit-implies-Read field checkbox toggle logic, and the object-level-access checkbox toggle/dependency-cascade logic. |
 | `inspectorNativeOrgChart` | Org Chart tab content: the search box, the Reports To/centered-user/Direct Reports hub-and-spoke layout, click-to-recenter, all built from `inspectorNativeOrgChartUtils`. Inspired by (not a port of) svierk/awesome-lwc-collection's `orgChartViewer` - see "What's in it" above. |
 | `inspectorNativeOrgChartUtils` | Pure functions: building the user/manager/direct-reports/search GraphQL queries (including the escaped LIKE-search literal) and extracting rows from their responses. |
 | `inspectorNativeRecordAccess` | Record Access Inspector tab content: the user search box (reusing `InspectorNativePermissionAssignment.searchUsers`), the record Id input, and the Read/Edit/Delete/Transfer + MaxAccessLevel results, via `InspectorNativeRecordAccess` (Apex). |
@@ -457,14 +536,15 @@ section above).
 | `InspectorNativeObjectPicker` (Apex) | Read-only, cacheable object lists: `getCreatableObjects` (Create Records/Field Creator) and the broader `getQueryableObjects` (Schema Explorer/Relationship Map/Data Export/FLS Matrix). See "What's in it" above. |
 | `InspectorNativeSoqlRunner` (Apex) | Read-only SOQL execution for Query Records. See "What's in it" above. |
 | `InspectorNativeFieldCreator` (Apex) | Builds and POSTs a Tooling API `CustomField` payload per requested field, for Field Creator - writes to org schema, and the only Apex class in this app that performs an HTTP callout. See "What's in it" above (and the Remote Site Setting step in "Setting it up"). |
-| `InspectorNativeFieldSpec` (Apex) | One field to create - the parameter type for `InspectorNativeFieldCreator.deployFields`. A plain top-level DTO, not nested inside `InspectorNativeFieldCreator` - confirmed directly that Apex inner classes aren't reliable as `List<T>` *parameter* types for LWC-invoked methods (every property silently arrived null despite a correctly-formed client payload); inner classes work fine as *return* types, which is why every other DTO in this app still is one. No separate permission set entry needed - class access security only governs the entry-point method being invoked, not the shape of its parameters. |
+| `InspectorNativeFieldSpec` (Apex) | One field to create - what `InspectorNativeFieldCreator.deployCustomFields`'s `fieldSpecsJson` parameter deserializes into via `JSON.deserialize()`. A plain top-level DTO, not nested inside `InspectorNativeFieldCreator` - extracting it out of a nested inner class was one of several fixes tried for the missing-field-data bug (confirmed real in general - Apex inner classes aren't reliable as `List<T>` *parameter* types for LWC-invoked methods - but not what fixed this specific bug; see "What's in it" above for what did). No separate permission set entry needed - class access security only governs the entry-point method being invoked, not the shape of its parameters. |
 | `InspectorNativeSessionId` (Visualforce page) | Internal session-ID bridge for Field Creator's Tooling API callout - just renders `{!$Api.Session_ID}`, read back via `PageReference.getContent()`. Never navigated to directly. See "What's in it" above for why `UserInfo.getSessionId()` isn't used instead. |
-| `InspectorNativeFieldPermissions` (Apex) | Lists assignable permission sets and grants field-level Read/Edit access via plain SOQL/DML (no callout) - for the Permissions modal. See "What's in it" above. |
+| `InspectorNativeFieldPermissions` (Apex) | Lists assignable permission sets (`Type = 'Regular'` only - see the FLS Matrix section above for why) and grants field-level Read/Edit access via plain SOQL/DML (no callout) - for the Permissions modal, and shared by the FLS Matrix tab too. |
 | `InspectorNativeFieldPermissionGrant` (Apex) | One permission set's Read/Edit selection for a field - the parameter type for `InspectorNativeFieldPermissions.grantFieldPermissions`. Same top-level-not-nested reasoning as `InspectorNativeFieldSpec` above, applied proactively before it caused the same bug. |
 | `InspectorNativePermissionAssignment` (Apex) | Lists assignable Permission Sets/Groups/Public Groups, searches users, and performs the bulk assignment (with expiration-date updates on re-run) - for the Permissions and Groups tab. See "What's in it" above. |
 | `InspectorNativeOrgInfo` (Apex) | Read-only license usage and org limit reads - for the Limits and Licenses tab. See "What's in it" above. |
-| `InspectorNativeFlsMatrix` (Apex) | Reads the full field x permission-set matrix (`getFieldPermissionMatrix`, filtered to `isPermissionable()` fields) and bulk-saves it (`saveFieldPermissions` - upserts a grant, or deletes it outright once both Read and Edit are unchecked) - for the FLS Matrix tab. See "What's in it" above. |
-| `InspectorNativeFlsGrant` (Apex) | One (field, permission set) cell's desired Read/Edit state - the parameter type for `InspectorNativeFlsMatrix.saveFieldPermissions`. Same top-level-not-nested reasoning as `InspectorNativeFieldSpec`/`InspectorNativeFieldPermissionGrant` above. |
+| `InspectorNativeFlsMatrix` (Apex) | Reads the full field x permission-set matrix plus object-level access (`getFieldPermissionMatrix`, fields filtered to `isPermissionable()`), auto-grants object-level Read where a field grant needs it and doesn't already have it (`ensureObjectReadForFieldGrants` - its own Apex transaction, called and awaited before the save below) and bulk-saves both (`saveFieldPermissions` - upserts/deletes field grants, upserts explicit object-level grants) - for the FLS Matrix tab. See "What's in it" above for the deserialization bug, the "Unknown error" masking fix, and the full misdiagnosis-then-correction story behind `INVALID_CROSS_REFERENCE_KEY` (it was never about object-level Read - it was Standard-type permission sets, now filtered out at the source in `InspectorNativeFieldPermissions`). |
+| `InspectorNativeFlsGrant` (Apex) | One (field, permission set) cell's desired Read/Edit state - a parameter type for `InspectorNativeFlsMatrix.saveFieldPermissions`. Same top-level-not-nested reasoning as `InspectorNativeFieldSpec`/`InspectorNativeFieldPermissionGrant` above. |
+| `InspectorNativeObjectPermissionGrant` (Apex) | One permission set's desired object-level access (Read/Create/Edit/Delete/View All/Modify All) on the FLS Matrix's object - the other parameter type for `InspectorNativeFlsMatrix.saveFieldPermissions`. Same top-level-not-nested reasoning as `InspectorNativeFlsGrant`. |
 | Custom Tab / Custom Application (`Salesforce_Inspector_Native`) | App Launcher entry point. |
 | Permission Set (`Salesforce_Inspector_Native`) | Grants the app, its tab, all eight Apex classes, and access to the `InspectorNativeSessionId` Visualforce page - deliberately no object/field permissions, see "Setting it up" above. |
 | `inspectorNativeCsvUtils`, `inspectorNativeQueryBridge`, `inspectorNativeRecordEntryUtils`, `inspectorNativeSharedUtils`, `inspectorNativeMapping`, `inspectorNativeFormField` | Supporting bundles for the grid above: CSV parsing/mapping, the GraphQL query-to-Promise bridge, column/mutation-building utilities, shared toast/navigation/field-model helpers, the CSV-to-field mapping dialog, and the typed form-field renderer. Originally forked from the now-retired `multiRecordEntry` topic (see "Fully standalone" above) - self-contained now, not vendored from or kept in sync with anything outside this package. |

@@ -19,10 +19,20 @@ public with sharing class InspectorNativeFieldPermissions {
 
     // IsOwnedByProfile = false excludes the auto-generated permission sets Salesforce creates one
     // per Profile (not meaningful to offer those here - they're managed through the Profile itself).
+    //
+    // Type = 'Regular' excludes every other PermissionSet Type (e.g. 'Standard', the type Salesforce
+    // uses for the permission sets it auto-provisions alongside a Permission Set License, typically
+    // from an installed package or platform feature) - confirmed live, the hard way, across several
+    // rounds of a field-level-security save failing with an opaque INVALID_CROSS_REFERENCE_KEY error
+    // no matter what this app tried on its own end, that Salesforce simply does not allow direct
+    // FieldPermissions/ObjectPermissions DML against a non-Regular PermissionSet at all - it's not a
+    // dependency this app can satisfy or work around, the platform predefines and locks those
+    // permission sets down entirely. Only Regular (user-created, fully org-controlled) permission
+    // sets are ever genuinely editable here, so those are the only ones worth offering.
     @AuraEnabled(cacheable=true)
     public static List<PermissionSetOption> getAssignablePermissionSets() {
         List<PermissionSetOption> options = new List<PermissionSetOption>();
-        for (PermissionSet permissionSet : [SELECT Id, Label FROM PermissionSet WHERE IsOwnedByProfile = false ORDER BY Label]) {
+        for (PermissionSet permissionSet : [SELECT Id, Label FROM PermissionSet WHERE IsOwnedByProfile = false AND Type = 'Regular' ORDER BY Label]) {
             PermissionSetOption option = new PermissionSetOption();
             option.id = permissionSet.Id;
             option.label = permissionSet.Label;

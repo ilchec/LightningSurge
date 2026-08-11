@@ -327,16 +327,13 @@ export default class InspectorNativeFieldCreator extends LightningElement {
     this._deployResults = undefined;
     const rowsBeingDeployed = this._rows;
     const fieldSpecs = rowsBeingDeployed.map((row) => this.buildFieldSpec(row));
-    // Temporary diagnostic - remove once root-caused. Compare this against what the Apex-side
-    // error message reports it received (also temporarily restored) - client and server should
-    // show the same values.
-    // eslint-disable-next-line no-console
-    console.log('[InspectorNativeFieldCreator] Deploying fieldSpecs:\n' + JSON.stringify(fieldSpecs, null, 2));
+    // fieldSpecs travels as a JSON string (fieldSpecsJson), not a typed List<T> parameter - see the
+    // Apex class's own doc comment for why.
     try {
       // One Tooling API callout per field, each with its own immediate success/failure and (on
       // failure) the real error message - see the Apex class's doc comment for why this replaced
       // the original polling design.
-      const results = await deployCustomFields({ fieldSpecs });
+      const results = await deployCustomFields({ fieldSpecsJson: JSON.stringify(fieldSpecs) });
       this._deployResults = await this.applyPermissionGrants(results, rowsBeingDeployed);
     } catch (error) {
       this.deployErrorText = error?.body?.message ?? error?.message ?? 'Unknown error deploying fields';

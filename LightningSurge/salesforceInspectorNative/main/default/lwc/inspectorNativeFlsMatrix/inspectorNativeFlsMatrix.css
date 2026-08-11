@@ -35,10 +35,18 @@
   vertical-align: middle;
 }
 
-.matrix-table thead th {
+/* Only the top header row (permission set names) sticks vertically - stacking a second sticky row
+   under it would need its exact rendered height to offset `top` correctly, which can't be
+   confirmed without live rendering. The object-access row below it scrolls with the body instead;
+   still contained within .table-container's own scroll area either way. */
+.matrix-table thead tr:first-child th {
   position: sticky;
   top: 0;
   z-index: 2;
+  background: #f3f3f3;
+}
+
+.object-permission-row th {
   background: #f3f3f3;
 }
 
@@ -60,11 +68,32 @@ thead .matrix-field-col {
   background: var(--lwc-colorBackgroundHint, #fdf4e7);
 }
 
+/* Two columns instead of one row of six - same width as the field-level cells below (R/E side by
+   side), just three rows tall instead of one very wide row. Grid auto-placement fills left-to-right
+   then wraps, so the DOM order (Read, Create, Edit, Delete, View All, Modify All) lands as
+   Read/Create, then Edit/Delete, then View All/Modify All.
+
+   inline-grid, not grid: a block-level grid stretches to fill the <th>'s full width - and that
+   width is driven by the widest thing in the column across every row, usually the permission set's
+   own name in the header row above this one, which is often wider than a couple of checkboxes. The
+   field-level cells below stay compact because their plain inline-flex spans shrink-wrap instead of
+   stretching; inline-grid gets the object-level cell the same shrink-wrapped, left-aligned behavior. */
+.object-permission-cell {
+  display: inline-grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 0.25rem 0.75rem;
+  font-weight: 400;
+}
+
 .cell-checkbox {
   display: inline-flex;
   align-items: center;
   gap: 0.15rem;
   margin-right: 0.75rem;
+}
+
+.object-permission-cell .cell-checkbox {
+  margin-right: 0;
 }
 
 .cell-checkbox-label {

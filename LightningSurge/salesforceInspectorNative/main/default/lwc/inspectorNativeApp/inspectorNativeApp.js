@@ -4,6 +4,11 @@ import { LightningElement, wire } from 'lwc';
 
 const SETTINGS_NAV_NAME = 'settings';
 
+// Bump this by hand alongside any deploy-worthy change - the whole point is a glance at the nav
+// column confirming which build is actually running in the org, especially useful mid-debugging
+// when it's not otherwise obvious whether the latest fix actually made it into a deploy.
+const APP_VERSION = '0.5 (Beta)';
+
 // One entry per toggleable tab - `developerName` matches a Salesforce_Inspector_Native_Tab__mdt
 // record's DeveloperName, `name` is this component's own internal nav/content-switch key,
 // `category` groups tabs into their own lightning-vertical-navigation-section (see navSections) -
@@ -83,6 +88,7 @@ export default class InspectorNativeApp extends NavigationMixin(LightningElement
   selectedTab;
   isLoadingConfig = true;
   configErrorText;
+  appVersion = APP_VERSION;
 
   _enabledByDeveloperName = {};
 

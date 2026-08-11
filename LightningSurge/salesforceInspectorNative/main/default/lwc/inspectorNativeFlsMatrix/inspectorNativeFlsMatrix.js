@@ -1,13 +1,19 @@
+import ensureObjectReadForFieldGrants from '@salesforce/apex/InspectorNativeFlsMatrix.ensureObjectReadForFieldGrants';
 import getFieldPermissionMatrix from '@salesforce/apex/InspectorNativeFlsMatrix.getFieldPermissionMatrix';
 import saveFieldPermissions from '@salesforce/apex/InspectorNativeFlsMatrix.saveFieldPermissions';
 import getQueryableObjects from '@salesforce/apex/InspectorNativeObjectPicker.getQueryableObjects';
 import { refreshApex } from '@salesforce/apex';
 import {
   buildDirtyGrantList,
+  buildDirtyObjectPermissionGrantList,
   buildGrantKey,
   buildGrantStateMap,
   buildMatrixRows,
-  toggleCellState
+  buildObjectPermissionStateMap,
+  defaultObjectPermissionState,
+  isSameObjectPermissionState,
+  toggleCellState,
+  toggleObjectPermissionState
 } from 'c/inspectorNativeFlsMatrixUtils';
 import { showToast } from 'c/inspectorNativeSharedUtils';
 import { LightningElement, wire } from 'lwc';
@@ -17,7 +23,11 @@ import { LightningElement, wire } from 'lwc';
  * set, Read/Edit checkboxes pre-loaded with current access, bulk-saveable in one call. Backed by
  * InspectorNativeFlsMatrix - unlike Field Creator's Permissions modal (additive-only, one field at
  * a time), this tool IS the editor of record for a permission set's field access, so unchecking a
- * box here actually revokes it on Save, the same way Setup's own FLS UI behaves.
+ * box here actually revokes it on Save, the same way Setup's own FLS UI behaves. A second header
+ * row above the field matrix covers the object's own object-level access (Read/Create/Edit/Delete/
+ * View All/Modify All) per permission set - field-level security only really means something
+ * alongside object-level Read, so this tool covers both rather than leaving object-level access
+ * as a gap.
  * @alias InspectorNativeFlsMatrix
  * @extends LightningElement
  * @hideconstructor
@@ -32,10 +42,13 @@ export default class InspectorNativeFlsMatrix extends LightningElement {
   _matrixResult;
   _wiredMatrix;
   _dirtyStateByKey = new Map();
+  _objectPermissionDirtyByPermissionSetId = new Map();
   // undefined until the matrix first loads for the currently-selected object - that's the signal
-  // to default it to "every permission set shown". A later refresh (e.g. refreshApex after Save)
-  // must NOT re-default it, or a user's narrowed-down selection would silently reset to "all"
-  // every time they save - so this only ever gets initialized once per object, in wiredMatrix.
+  // that this is a fresh load. Seeded to an EMPTY set (no permission sets shown) rather than
+  // "every permission set" - an org with many permission sets renders a much smaller/faster
+  // initial table, and the empty state prompts the user to the picker instead. A later refresh
+  // (e.g. refreshApex after Save) must NOT re-seed it, or a user's own selection would silently
+  // reset every time they save - so this only ever gets initialized once per object, in wiredMatrix.
   _visiblePermissionSetIds;
   _isPermissionSetPickerOpen = false;
   permissionSetFilterTerm = '';
@@ -69,7 +82,7 @@ export default class InspectorNativeFlsMatrix extends LightningElement {
     if (data) {
       this._matrixResult = data;
       if (!this._visiblePermissionSetIds) {
-        this._visiblePermissionSetIds = new Set(data.permissionSets.map((permissionSet) => permissionSet.id));
+        this._visiblePermissionSetIds = new Set();
       }
     } else if (error) {
       this._matrixResult = undefined;
@@ -152,8 +165,31 @@ export default class InspectorNativeFlsMatrix extends LightningElement {
     }));
   }
 
+  // One cell per visible permission set column, for the object-level access header row - the same
+  // dirty-overrides-server fallthrough as matrixRows, just keyed by permissionSetId alone since
+  // object-level access has no field dimension.
+  get objectPermissionHeaderCells() {
+    if (!this._matrixResult) {
+      return [];
+    }
+    const stateByPermissionSetId = buildObjectPermissionStateMap(this._matrixResult.existingObjectPermissions);
+    return this.visiblePermissionSets.map((permissionSet) => {
+      const isDirty = this._objectPermissionDirtyByPermissionSetId.has(permissionSet.id);
+      const state =
+        this._objectPermissionDirtyByPermissionSetId.get(permissionSet.id) ??
+        stateByPermissionSetId.get(permissionSet.id) ??
+        defaultObjectPermissionState();
+      return {
+        permissionSetId: permissionSet.id,
+        ...state,
+        isDirty,
+        cellClass: isDirty ? 'matrix-cell matrix-cell_dirty' : 'matrix-cell'
+      };
+    });
+  }
+
   get dirtyCount() {
-    return this._dirtyStateByKey.size;
+    return this._dirtyStateByKey.size + this._objectPermissionDirtyByPermissionSetId.size;
   }
 
   get hasUnsavedChanges() {
@@ -176,6 +212,7 @@ export default class InspectorNativeFlsMatrix extends LightningElement {
     this._selectedObjectApiName = event.detail.value;
     this._matrixResult = undefined;
     this._dirtyStateByKey = new Map();
+    this._objectPermissionDirtyByPermissionSetId = new Map();
     this._visiblePermissionSetIds = undefined;
     this._isPermissionSetPickerOpen = false;
     this.permissionSetFilterTerm = '';
@@ -228,18 +265,49 @@ export default class InspectorNativeFlsMatrix extends LightningElement {
     this._dirtyStateByKey = nextDirty;
   }
 
+  handleObjectPermissionToggle(event) {
+    const { permissionSetId, field } = event.currentTarget.dataset;
+    const stateByPermissionSetId = buildObjectPermissionStateMap(this._matrixResult.existingObjectPermissions);
+    const original = stateByPermissionSetId.get(permissionSetId) ?? defaultObjectPermissionState();
+    const currentState = this._objectPermissionDirtyByPermissionSetId.get(permissionSetId) ?? original;
+    const nextState = toggleObjectPermissionState(currentState, field);
+
+    const nextDirty = new Map(this._objectPermissionDirtyByPermissionSetId);
+    if (isSameObjectPermissionState(nextState, original)) {
+      nextDirty.delete(permissionSetId);
+    } else {
+      nextDirty.set(permissionSetId, nextState);
+    }
+    this._objectPermissionDirtyByPermissionSetId = nextDirty;
+  }
+
   handleDiscardClick() {
     if (this.isDiscardDisabled) return;
     this._dirtyStateByKey = new Map();
+    this._objectPermissionDirtyByPermissionSetId = new Map();
   }
 
   async handleSaveClick() {
     if (this.isSaveDisabled) return;
     const grants = buildDirtyGrantList(this._dirtyStateByKey);
+    const objectGrants = buildDirtyObjectPermissionGrantList(this._objectPermissionDirtyByPermissionSetId);
+    // Grants travel as a JSON string, not a typed List<T> - see
+    // InspectorNativeFlsMatrix.saveFieldPermissions's own comment for why.
+    const grantsJson = JSON.stringify(grants);
+    const objectGrantsJson = JSON.stringify(objectGrants);
     this.isSaving = true;
     try {
-      await saveFieldPermissions({ objectApiName: this._selectedObjectApiName, grants });
+      // Two separate, sequentially-awaited Apex calls, not one - confirmed live that upserting the
+      // object-level Read grant a field grant depends on, then immediately upserting the field grant
+      // itself, in the SAME Apex transaction, still fails with INVALID_CROSS_REFERENCE_KEY every
+      // time, even though the object-level upsert itself succeeds. Whatever check enforces that
+      // dependency during a FieldPermissions upsert looks at already-committed state, not an earlier
+      // DML statement's uncommitted effect within the same transaction - so this call has to fully
+      // complete (its own transaction, genuinely committed) before saveFieldPermissions runs.
+      await ensureObjectReadForFieldGrants({ objectApiName: this._selectedObjectApiName, grantsJson });
+      await saveFieldPermissions({ objectApiName: this._selectedObjectApiName, grantsJson, objectGrantsJson });
       this._dirtyStateByKey = new Map();
+      this._objectPermissionDirtyByPermissionSetId = new Map();
       await refreshApex(this._wiredMatrix);
       showToast(this, 'Success', 'Field permissions saved', 'success');
     } catch (error) {

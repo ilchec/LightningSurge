@@ -69,3 +69,111 @@ export function buildDirtyGrantList(dirtyStateByKey) {
   });
   return grants;
 }
+
+/**
+ * Object-level access (ObjectPermissions) for one permission set on the FLS Matrix's object - a
+ * second header row above the field matrix, one set of six checkboxes per permission set column,
+ * since object-level access has no "field" dimension the way FieldPermissions does.
+ */
+export function defaultObjectPermissionState() {
+  return {
+    readAccess: false,
+    createAccess: false,
+    editAccess: false,
+    deleteAccess: false,
+    viewAllAccess: false,
+    modifyAllAccess: false
+  };
+}
+
+/** { permissionSetId -> objectPermissionState } from the server's existingObjectPermissions list. */
+export function buildObjectPermissionStateMap(existingObjectPermissions) {
+  const map = new Map();
+  (existingObjectPermissions || []).forEach((permission) => {
+    map.set(permission.permissionSetId, {
+      readAccess: Boolean(permission.readAccess),
+      createAccess: Boolean(permission.createAccess),
+      editAccess: Boolean(permission.editAccess),
+      deleteAccess: Boolean(permission.deleteAccess),
+      viewAllAccess: Boolean(permission.viewAllAccess),
+      modifyAllAccess: Boolean(permission.modifyAllAccess)
+    });
+  });
+  return map;
+}
+
+/**
+ * Applies one checkbox click to an object-permission cell's current state, enforcing the same
+ * dependency chain Setup's own "Object Settings" page enforces (and InspectorNativeFlsMatrix.
+ * saveFieldPermissions re-applies server-side, so a stale payload can never leave an inconsistent
+ * combination saved even if this client-side logic were somehow bypassed):
+ * Edit implies Read; Delete implies Read+Edit; View All implies Read; Modify All implies
+ * Read+Edit+Delete. Unchecking a box that others depend on cascades the uncheck to those dependents
+ * too (unchecking Read also unchecks Edit/Delete/View All/Modify All; unchecking Edit also unchecks
+ * Delete/Modify All; unchecking Delete also unchecks Modify All) - Create has no dependency on, or
+ * from, anything else.
+ */
+export function toggleObjectPermissionState(state, field) {
+  const next = { ...state };
+  if (field === 'read') {
+    next.readAccess = !state.readAccess;
+    if (!next.readAccess) {
+      next.editAccess = false;
+      next.deleteAccess = false;
+      next.viewAllAccess = false;
+      next.modifyAllAccess = false;
+    }
+  } else if (field === 'create') {
+    next.createAccess = !state.createAccess;
+  } else if (field === 'edit') {
+    next.editAccess = !state.editAccess;
+    if (next.editAccess) {
+      next.readAccess = true;
+    } else {
+      next.deleteAccess = false;
+      next.modifyAllAccess = false;
+    }
+  } else if (field === 'delete') {
+    next.deleteAccess = !state.deleteAccess;
+    if (next.deleteAccess) {
+      next.readAccess = true;
+      next.editAccess = true;
+    } else {
+      next.modifyAllAccess = false;
+    }
+  } else if (field === 'viewAll') {
+    next.viewAllAccess = !state.viewAllAccess;
+    if (next.viewAllAccess) {
+      next.readAccess = true;
+    }
+  } else if (field === 'modifyAll') {
+    next.modifyAllAccess = !state.modifyAllAccess;
+    if (next.modifyAllAccess) {
+      next.readAccess = true;
+      next.editAccess = true;
+      next.deleteAccess = true;
+    }
+  }
+  return next;
+}
+
+/** Whether two object-permission states represent the same access, field-by-field. */
+export function isSameObjectPermissionState(a, b) {
+  return (
+    a.readAccess === b.readAccess &&
+    a.createAccess === b.createAccess &&
+    a.editAccess === b.editAccess &&
+    a.deleteAccess === b.deleteAccess &&
+    a.viewAllAccess === b.viewAllAccess &&
+    a.modifyAllAccess === b.modifyAllAccess
+  );
+}
+
+/** Flattens the object-permission dirty-state map into the List<InspectorNativeObjectPermissionGrant>-shaped payload saveFieldPermissions expects. */
+export function buildDirtyObjectPermissionGrantList(dirtyByPermissionSetId) {
+  const grants = [];
+  dirtyByPermissionSetId.forEach((state, permissionSetId) => {
+    grants.push({ permissionSetId, ...state });
+  });
+  return grants;
+}

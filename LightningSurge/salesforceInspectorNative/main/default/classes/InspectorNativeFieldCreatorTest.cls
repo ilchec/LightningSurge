@@ -43,12 +43,30 @@ private class InspectorNativeFieldCreatorTest {
 
         Test.startTest();
         List<InspectorNativeFieldCreator.FieldDeployResult> results = InspectorNativeFieldCreator.deployCustomFields(
-            new List<InspectorNativeFieldSpec>{ spec }
+            JSON.serialize(new List<InspectorNativeFieldSpec>{ spec })
         );
         Test.stopTest();
 
         System.assertEquals(1, results.size());
         System.assertEquals('My_Field__c', results[0].apiName);
+        System.assertEquals(true, results[0].success);
+    }
+
+    // fieldSpecs travel as a JSON string, parsed with JSON.deserialize() inside the method - a raw,
+    // hand-written JSON literal (not built via JSON.serialize() of a real object, like every other
+    // test here) exercises that parsing directly, the same shape the actual client payload takes.
+    @IsTest
+    static void deploysFieldsSuccessfullyFromARawJsonStringPayload() {
+        stubApiSessionId();
+        Test.setMock(HttpCalloutMock.class, new SuccessMock());
+        String fieldSpecsJson = '[{"objectApiName":"Account","fieldApiName":"My_Json_Field","label":"My Json Field","fieldType":"Text","length":100}]';
+
+        Test.startTest();
+        List<InspectorNativeFieldCreator.FieldDeployResult> results = InspectorNativeFieldCreator.deployCustomFields(fieldSpecsJson);
+        Test.stopTest();
+
+        System.assertEquals(1, results.size());
+        System.assertEquals('My_Json_Field__c', results[0].apiName);
         System.assertEquals(true, results[0].success);
     }
 
@@ -65,7 +83,7 @@ private class InspectorNativeFieldCreatorTest {
 
         Test.startTest();
         List<InspectorNativeFieldCreator.FieldDeployResult> results = InspectorNativeFieldCreator.deployCustomFields(
-            new List<InspectorNativeFieldSpec>{ spec }
+            JSON.serialize(new List<InspectorNativeFieldSpec>{ spec })
         );
         Test.stopTest();
 
@@ -86,7 +104,7 @@ private class InspectorNativeFieldCreatorTest {
 
         Test.startTest();
         List<InspectorNativeFieldCreator.FieldDeployResult> results = InspectorNativeFieldCreator.deployCustomFields(
-            new List<InspectorNativeFieldSpec>{ spec }
+            JSON.serialize(new List<InspectorNativeFieldSpec>{ spec })
         );
         Test.stopTest();
 

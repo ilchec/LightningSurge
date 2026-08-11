@@ -34,6 +34,19 @@
  * The per-field spec type (InspectorNativeFieldSpec) is deliberately its own top-level class, not
  * nested in here - see that class's own doc comment for why (Apex inner classes aren't reliable as
  * List<T> parameter types for LWC-invoked methods, confirmed directly).
+ *
+ * deployCustomFields takes a JSON string (fieldSpecsJson), not a typed List<InspectorNativeFieldSpec>
+ * parameter - applying the same fix independently confirmed live for
+ * InspectorNativeFlsMatrix.saveFieldPermissions (see that class's own doc comment), which hit the
+ * exact same failure shape this class's own missing-API-name saga did (see the README's Field
+ * Creator section for the full history): a List<CustomType> Apex-action parameter arriving with
+ * every property null despite a confirmed-correct outgoing request. Sending the spec list as a JSON
+ * string and parsing it with JSON.deserialize() inside the method bypasses whatever the automatic
+ * List<T> action-parameter binding was doing wrong. Not yet independently confirmed for this class
+ * specifically (the FLS Matrix fix itself is still pending confirmation too, as of this writing) -
+ * both diagnostics already in this file (the console.log in inspectorNativeFieldCreator.js, and the
+ * JSON.serialize(spec) embedded in the "missing required field data" error message below) are left
+ * in place so this can still be verified for real rather than assumed fixed.
  */
 public with sharing class InspectorNativeFieldCreator {
     private static final String API_VERSION = '67.0';
@@ -54,7 +67,10 @@ public with sharing class InspectorNativeFieldCreator {
     }
 
     @AuraEnabled
-    public static List<FieldDeployResult> deployCustomFields(List<InspectorNativeFieldSpec> fieldSpecs) {
+    public static List<FieldDeployResult> deployCustomFields(String fieldSpecsJson) {
+        List<InspectorNativeFieldSpec> fieldSpecs = String.isNotBlank(fieldSpecsJson)
+            ? (List<InspectorNativeFieldSpec>) JSON.deserialize(fieldSpecsJson, List<InspectorNativeFieldSpec>.class)
+            : new List<InspectorNativeFieldSpec>();
         List<FieldDeployResult> results = new List<FieldDeployResult>();
         for (InspectorNativeFieldSpec spec : fieldSpecs) {
             results.add(deployOneField(spec));
