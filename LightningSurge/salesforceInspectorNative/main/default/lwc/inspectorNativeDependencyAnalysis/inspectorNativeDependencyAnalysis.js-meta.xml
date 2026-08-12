@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>67.0</apiVersion>
+    <isExposed>false</isExposed>
+    <description>Impact Analysis tab content: object/field picker + whole-object toggle + grouped dependency results, calling InspectorNativeDependencyAnalysis (Apex) for the Tooling API Dependency API read.</description>
+</LightningComponentBundle>

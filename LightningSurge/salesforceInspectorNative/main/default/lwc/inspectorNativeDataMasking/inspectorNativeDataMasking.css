@@ -1,0 +1,46 @@
+.page-container {
+  max-width: 100%;
+}
+
+.selector-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.selector-item {
+  width: 20rem;
+  max-width: 100%;
+}
+
+.field-picker {
+  max-width: 40rem;
+}
+
+.preview-button {
+  display: block;
+  margin-top: 1.5rem;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.preview-table th,
+.preview-table td {
+  white-space: nowrap;
+}
+
+.original-value {
+  color: var(--lwc-colorTextWeak, #706e6b);
+  text-decoration: line-through;
+}
+
+.arrow {
+  margin: 0 0.35rem;
+}
+
+.masked-value {
+  font-weight: 600;
+}

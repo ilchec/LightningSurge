@@ -1,0 +1,99 @@
+<template>
+  <div class="slds-p-around_medium page-container">
+    <div class="selector-row">
+      <div class="selector-item">
+        <lightning-combobox
+          label="Object"
+          placeholder="Select an object..."
+          options={objectOptions}
+          value={selectedObjectApiName}
+          disabled={isLoadingObjects}
+          onchange={handleObjectSelect}
+        ></lightning-combobox>
+      </div>
+      <div lwc:if={hasSelectedObject} class="selector-item">
+        <lightning-input type="number" label="Max rows" value={maxRows} min="1" max="200" onchange={handleMaxRowsChange}></lightning-input>
+      </div>
+    </div>
+
+    <p lwc:if={hasNoMaskableFields} class="slds-text-color_weak slds-p-top_small">
+      This object has no fields this tool can mask (text/email/phone fields you can update).
+    </p>
+
+    <div lwc:if={fieldOptions.length} class="field-picker slds-m-top_medium">
+      <lightning-dual-listbox
+        label="Fields to mask"
+        source-label="Available fields"
+        selected-label="Fields to mask"
+        options={fieldOptions}
+        value={selectedFieldApiNames}
+        onchange={handleFieldSelectionChange}
+      ></lightning-dual-listbox>
+    </div>
+
+    <lightning-button
+      lwc:if={hasSelectedObject}
+      variant="brand"
+      label="Preview Masking"
+      class="preview-button"
+      disabled={isPreviewDisabled}
+      onclick={handlePreviewClick}
+    ></lightning-button>
+
+    <div lwc:if={errorText} class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-top_medium" role="alert">
+      <span>{errorText}</span>
+    </div>
+
+    <lightning-spinner lwc:if={isLoadingObjects} alternative-text="Loading objects" size="medium"></lightning-spinner>
+    <lightning-spinner lwc:if={isPreviewing} alternative-text="Loading preview" size="medium"></lightning-spinner>
+
+    <template lwc:if={hasPreview}>
+      <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-top_medium slds-m-bottom_small">
+        <h3 class="slds-text-heading_small">{previewRowCount} record(s) previewed - nothing written yet</h3>
+        <lightning-button variant="destructive" label="Apply Masking" disabled={isApplyDisabled} onclick={handleApplyClick}></lightning-button>
+      </div>
+
+      <p lwc:if={hasNoPreviewRows} class="slds-text-color_weak slds-p-around_small">No records matched.</p>
+
+      <div lwc:if={previewDisplayRows.length} class="table-container">
+        <table class="slds-table slds-table_cell-buffer slds-table_bordered preview-table">
+          <thead>
+            <tr class="slds-line-height_reset">
+              <th scope="col">Record Id</th>
+              <template for:each={previewFieldHeaders} for:item="field">
+                <th key={field.apiName} scope="col">{field.label} (original -&gt; masked)</th>
+              </template>
+            </tr>
+          </thead>
+          <tbody>
+            <template for:each={previewDisplayRows} for:item="row">
+              <tr key={row.id}>
+                <td>{row.id}</td>
+                <template for:each={row.cells} for:item="cell">
+                  <td key={cell.apiName}>
+                    <span class="original-value">{cell.original}</span>
+                    <span class="arrow">-&gt;</span>
+                    <span class="masked-value">{cell.masked}</span>
+                  </td>
+                </template>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </template>
+
+    <template lwc:if={hasAppliedResults}>
+      <h3 class="slds-text-heading_small slds-m-top_medium slds-m-bottom_small">
+        Applied: {appliedSuccessCount} succeeded, {appliedFailureCount} failed
+      </h3>
+      <ul class="slds-list_dotted">
+        <template for:each={appliedResults} for:item="result">
+          <li key={result.clientId}>
+            {result.clientId} - <template lwc:if={result.success}>Masked</template><template lwc:if={result.errorMessage}>{result.errorMessage}</template>
+          </li>
+        </template>
+      </ul>
+    </template>
+  </div>
+</template>

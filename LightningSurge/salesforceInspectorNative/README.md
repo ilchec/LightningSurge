@@ -4,10 +4,10 @@
 
 A standalone Lightning app, reached via the App Launcher, bundling admin/developer tools built
 around the UI API GraphQL wire adapter (`lightning/graphql`) instead of Apex wherever possible. It
-has eleven tabs, grouped into four sections on a vertical nav on the left:
+has fourteen tabs, grouped into four sections on a vertical nav on the left:
 
-- **Data** - Create Records, Query Records, Data Export
-- **Schema** - Schema Explorer, Relationship Map, Field Creator
+- **Data** - Create Records, Query Records, Data Export, Data Masking
+- **Schema** - Schema Explorer, Relationship Map, Field Creator, Picklist Manager, Impact Analysis
 - **Users & Security** - Permissions and Groups, FLS Matrix, Org Chart, Record Access Inspector
 - **Org Info** - Limits and Licenses
 
@@ -79,6 +79,49 @@ form-field renderer) are this package's own self-contained copies, all under its
   Lightning-invoked Apex context) - instead `InspectorNativeFieldCreator` renders a tiny internal
   Visualforce page (`InspectorNativeSessionId`, just `{!$Api.Session_ID}`) and reads the session ID
   back via `PageReference.getContent()`.
+- **Picklist Manager tab** - pick an object, then a custom picklist field on it, and view every
+  value (active and inactive), add new ones, activate/deactivate existing ones, and reorder them
+  (Move Up/Down, one adjacent swap at a time - not free drag-and-drop) - instead of hunting through
+  Setup's per-object Field-Level detail page. Same Tooling API callout shape as Field Creator (GET
+  the field's full metadata, PATCH the whole definition back - the Tooling API doesn't support a
+  partial update); reordering has no server-side concept of its own, since Save already always sends
+  the complete value list in whatever order it's currently in. Scoped to custom picklist fields
+  only - a standard field's picklist, or a custom field built on a shared Global Value Set, lives in
+  a differently-shaped Tooling object this tool doesn't support yet, and surfaces as a clear error
+  rather than a confusing parse failure. A value's "default" flag is shown but not editable here -
+  changing which value defaults is a more consequential, separate action.
+
+  **No "Delete Value" action, in-tool or link-out** - confirmed via research that the Tooling/
+  Metadata API can't actually delete a picklist value at all, only deactivate one (already offered
+  via the Active toggle above). A real delete, optionally migrating existing records to a
+  replacement value, is a Setup-UI-only action that runs as an async background job with an email
+  notification when it finishes - nothing about that flow is exposed through the API. A link-out to
+  Setup's own field page was tried as a middle ground, but confirmed live not to work reliably
+  either, and was removed rather than kept as a broken button. Deactivating a value remains the
+  supported way to stop it from being selected going forward.
+
+  **A live report showed the Value/Label column blank for every row, while Active correctly
+  reflected each row's real state - confirmed and fixed.** `isActive`/`default` were the right JSON
+  keys coming back from the Tooling API's GET response, but `fullName`/`label` (the key names
+  documented for the Metadata API's *create*-payload `CustomValue` type, e.g. what
+  `InspectorNativeFieldCreator` itself uses when creating a new picklist field) weren't - a
+  temporary diagnostic confirmed the real key is `valueName`. The Tooling API's own JSON wire format
+  for a CustomField's inline value set genuinely differs from the Metadata API's create-payload
+  field names; it isn't the same schema reused both ways, as originally assumed. Also confirmed
+  live: a value's `isActive` can come back as JSON `null` rather than an explicit `true`/`false`
+  (matching `CustomValue`'s own documented default of active-unless-said-otherwise) - handled by
+  treating a null the same as active, not failing closed.
+- **Impact Analysis tab** - "what references this custom field/object" - Flows, Apex classes,
+  layouts, and more, via Salesforce's own Dependency API. Pick an object, then either a custom field
+  or toggle to analyze the whole object, and see every referencing component grouped by type.
+  Results are real but not exhaustive, always shown with a persistent caveat banner: Reports aren't
+  included at all, results are capped at 2,000 references, and Flow references are shown less
+  completely than Apex/formula references - an empty result means nothing was *found*, not a
+  guarantee that nothing depends on it. Scoped to custom fields/objects only, same reasoning as
+  Picklist Manager above. Read-only (no DML anywhere in this tool), but still needs a Tooling API
+  callout to work at all - `MetadataComponentDependency` isn't queryable through plain Apex SOQL,
+  confirmed via research before building this, so it's a different risk tier than this app's other
+  read-only tools even though nothing here ever writes anything.
 - **Permissions and Groups tab** - bulk-assign Permission Sets, Permission Set Groups, and Public
   Groups to a set of users in one operation. A 3-step inline flow: pick which items to assign from a
   searchable, type-filterable table; pick which users to assign them to (server-searched by name/
@@ -108,6 +151,18 @@ form-field renderer) are this package's own self-contained copies, all under its
   object is exhausted or a 50,000-row safety cap is hit (an optional "Max rows" input narrows that
   further). Exports raw field values, not locale-formatted display values - meant to be
   re-importable via this app's own Create Records CSV import.
+- **Data Masking tab** - overwrite a small, fixed set of built-in fake values (name/email/phone/
+  generic text) across a chosen object's records - for scrubbing a sandbox before handing it to a
+  vendor or QA, without Data Loader. No new Apex at all: reuses `InspectorNativeSoqlRunner` (the
+  same read path Query Records already uses) for the read, and this app's existing GraphQL mutation
+  builders (the same ones Query Records already trusts to save edited rows) for the write. **Preview-
+  then-apply, not a silent overwrite** - Preview runs the read and generates the replacement values
+  without touching anything; Apply is the only step that writes, and shows exactly what changed per
+  record afterward. Field picker is restricted to updateable text/email/phone fields - a formula,
+  picklist, or system field either can't be written to or would need a type-appropriate generator
+  this tool doesn't offer, so neither is ever offered as a masking target. Row count is capped at
+  200 - a write operation, not a read one, kept deliberately more modest than Data Export's much
+  higher read-only cap.
 - **FLS Matrix tab** - every field-level-security-eligible field on an object crossed with every
   editable permission set, Read/Edit checkboxes pre-loaded with current access, bulk-saveable in one
   call. Unlike Field Creator's Permissions modal (additive only - it only ever grants a
@@ -164,17 +219,20 @@ form-field renderer) are this package's own self-contained copies, all under its
 ## Where Apex is used
 
 Everything above is UI API/GraphQL except: the object list, running SOQL, field deployment/
-permissions, permission/group assignment, org info reads, the FLS matrix, and the record access
-read. Each has a narrow, single-purpose Apex class behind it:
+permissions, permission/group assignment, org info reads, the FLS matrix, the record access read,
+picklist value management, and dependency analysis. Each has a narrow, single-purpose Apex class
+behind it:
 
 - `InspectorNativeObjectPicker` - `getCreatableObjects` (Create Records, Field Creator) and
-  `getQueryableObjects` (Schema Explorer, Relationship Map, Data Export, FLS Matrix). Read-only,
-  cacheable - `Schema.getGlobalDescribe()` isn't reachable client-side.
+  `getQueryableObjects` (Schema Explorer, Relationship Map, Data Export, Data Masking, FLS Matrix,
+  Picklist Manager, Impact Analysis). Read-only, cacheable - `Schema.getGlobalDescribe()` isn't
+  reachable client-side.
 - `InspectorNativeSoqlRunner` - runs an arbitrary SOQL query via `Database.query(soql,
   AccessLevel.USER_MODE)`, the modern way to enforce the running user's own CRUD/FLS/sharing on a
-  dynamic query. Read-only - `Database.query` can only ever execute a SELECT.
+  dynamic query. Read-only - `Database.query` can only ever execute a SELECT. Used directly by Query
+  Records, and reused as-is by Data Masking's own read step (a plain `SELECT` it builds client-side).
 - `InspectorNativeFieldCreator` - builds and POSTs a Tooling API `CustomField` payload per
-  requested field. The only class in this app that performs an HTTP callout.
+  requested field.
 - `InspectorNativeFieldPermissions` / `InspectorNativeFlsMatrix` - grant/revoke field-level and
   object-level access via plain SOQL/DML, no callout needed (`PermissionSet`, `FieldPermissions`,
   and `ObjectPermissions` are all normal queryable/DML-able objects).
@@ -187,12 +245,26 @@ read. Each has a narrow, single-purpose Apex class behind it:
   `UserId` and a single `RecordId`, only `RecordId`/the `Has*Access` fields/`MaxAccessLevel` may be
   selected, and `RecordId` must be explicitly in the SELECT list too even though it's already
   pinned in the WHERE clause.
+- `InspectorNativePicklistManager` - GETs then PATCHes a custom picklist field's full Tooling API
+  metadata to add/activate/deactivate its values. Same own-domain HTTP callout shape as
+  `InspectorNativeFieldCreator`.
+- `InspectorNativeDependencyAnalysis` - queries the Tooling API's Dependency API
+  (`MetadataComponentDependency`) for what references a custom field/object. Read-only (no DML
+  anywhere in this class), but still needs the same Tooling API HTTP callout as the two classes
+  above - confirmed via research that `MetadataComponentDependency` isn't queryable through plain
+  Apex SOQL at all, only through the Tooling API's own REST query endpoint.
 
-`InspectorNativeObjectPicker`, `InspectorNativeSoqlRunner`, `InspectorNativeOrgInfo`, and
-`InspectorNativeRecordAccess` are read-only, low-risk exceptions to the no-Apex convention the rest
-of this repo follows. `InspectorNativeFieldCreator`, `InspectorNativeFieldPermissions`,
-`InspectorNativePermissionAssignment`, and `InspectorNativeFlsMatrix` write to org schema/security
-instead - a created field, a permission grant, or a group assignment all persist until someone
+Three classes here genuinely need the Tooling API callout (`InspectorNativeFieldCreator`,
+`InspectorNativePicklistManager`, `InspectorNativeDependencyAnalysis`) - all reuse the same
+`InspectorNativeSessionId` Visualforce session bridge and own-domain endpoint, no Remote Site
+Setting needed for any of them. `InspectorNativeObjectPicker`, `InspectorNativeSoqlRunner`,
+`InspectorNativeOrgInfo`, and `InspectorNativeRecordAccess` are read-only, low-risk exceptions to
+the no-Apex convention the rest of this repo follows. `InspectorNativeDependencyAnalysis` is also
+read-only (no DML), but not the same zero-callout risk tier as those four - it makes a real HTTP
+callout, even though nothing it does ever writes anything. `InspectorNativeFieldCreator`,
+`InspectorNativeFieldPermissions`, `InspectorNativePermissionAssignment`, `InspectorNativeFlsMatrix`,
+and `InspectorNativePicklistManager` write to org schema/security instead - a created field, a
+permission grant, a group assignment, or an edited picklist value list all persist until someone
 explicitly reverses them, so these are worth granting access to (see "Setting it up") with more
 care than the read-only ones.
 
@@ -200,8 +272,8 @@ care than the read-only ones.
 
 Which tabs show up in the left-hand nav is controlled by `Salesforce_Inspector_Native_Tab__mdt`, a
 custom metadata type with one record per tab and a single `Is_Enabled__c` checkbox.
-`inspectorNativeApp` reads it via a plain GraphQL query on load - no Apex involved. All eleven tabs
-ship enabled by default.
+`inspectorNativeApp` reads it via a plain GraphQL query on load - no Apex involved. All fourteen
+tabs ship enabled by default.
 
 To show or hide a tab: Setup → Custom Metadata Types → **Salesforce Inspector Native Tab** → Manage
 Records → open the record for that tab → toggle **Is Enabled** → Save. Takes effect the next time
@@ -222,19 +294,24 @@ to hide.
    assigned user can already create/query/update through their profile or other permission sets.
    - Query Records hands out general-purpose SOQL query access - assign this permission set the
      same way you'd think about giving someone Data Loader or Workbench access, not as casually as a
-     single-purpose UI feature.
-   - Field Creator (both creating fields and its Permissions modal) additionally needs the running
-     user to hold the org-level **"Customize Application"** system permission - a Salesforce
-     platform rule for any schema change, which this permission set cannot grant. No Remote Site
-     Setting or other manual Setup step is needed for its Tooling API callout - it targets the org's
-     own domain, which doesn't require pre-authorization.
+     single-purpose UI feature. Data Masking's own read step reuses that same access (it builds a
+     plain `SELECT` against whatever object/fields you pick), and its write step needs nothing beyond
+     the target fields' own Edit/FLS access the assigned user already has - same as any other data
+     write in this app, no extra system permission.
+   - Field Creator (both creating fields and its Permissions modal) and Picklist Manager both
+     additionally need the running user to hold the org-level **"Customize Application"** system
+     permission - a Salesforce platform rule for any schema change, which this permission set cannot
+     grant. No Remote Site Setting or other manual Setup step is needed for either one's Tooling API
+     callout - both target the org's own domain, which doesn't require pre-authorization.
    - Permissions and Groups needs **"Assign Permission Sets"** (for the Permission Set/Group half)
      and **"Manage Public Groups"** (for the Public Group half). A user missing one can still use the
      tab for the half they do have rights to.
    - FLS Matrix additionally needs **"Customize Application"** to save changes - the same rule Field
-     Creator needs, since field-level security is a schema-adjacent setting.
-   - Limits and Licenses, Schema Explorer, Relationship Map, Data Export, Org Chart, and Record
-     Access Inspector need nothing beyond the base permission set - all six are read-only.
+     Creator/Picklist Manager need, since field-level security is a schema-adjacent setting.
+   - Limits and Licenses, Schema Explorer, Relationship Map, Data Export, Org Chart, Record Access
+     Inspector, and Impact Analysis need nothing beyond the base permission set - all seven are
+     read-only. Impact Analysis makes a Tooling API callout like Field Creator/Picklist Manager do,
+     but since it never writes anything, the "Customize Application" rule above doesn't apply to it.
 3. App Launcher → search "Salesforce Inspector Native".
 
 ## Package contents
@@ -264,6 +341,12 @@ to hide.
 | `inspectorNativeOrgChart` | Org Chart tab content: search box, Reports To/centered-user/Direct Reports layout, via `inspectorNativeOrgChartUtils`. |
 | `inspectorNativeOrgChartUtils` | Pure functions: building the user/manager/direct-reports/search GraphQL queries and extracting rows from their responses. |
 | `inspectorNativeRecordAccess` | Record Access Inspector tab content: user search (reusing `InspectorNativePermissionAssignment.searchUsers`), record Id input, and the results, via `InspectorNativeRecordAccess`. |
+| `inspectorNativeDataMasking` | Data Masking tab content: object/field picker + preview-then-apply flow, via `inspectorNativeDataMaskingUtils`. Calls `InspectorNativeSoqlRunner` (read) and `inspectorNativeRecordEntryUtils`'s mutation builders (write) directly - no Apex class of its own. |
+| `inspectorNativeDataMaskingUtils` | Pure functions: eligible-field filtering, the masking read query, the fake-value generators, and building the preview/mutation row shapes `inspectorNativeRecordEntryUtils`'s mutation builders expect. |
+| `inspectorNativePicklistManager` | Picklist Manager tab content: object/picklist-field picker + the value table (view/add/activate/deactivate/reorder), via `inspectorNativePicklistManagerUtils`, calling `InspectorNativePicklistManager` (Apex) for the Tooling API read and save. |
+| `inspectorNativePicklistManagerUtils` | Pure functions: filtering custom picklist fields, duplicate-value checks, and value list edits (toggle active, append new). |
+| `inspectorNativeDependencyAnalysis` | Impact Analysis tab content: object/field picker + whole-object toggle + grouped dependency results, via `inspectorNativeDependencyAnalysisUtils`, calling `InspectorNativeDependencyAnalysis` (Apex) for the Tooling API Dependency API read. |
+| `inspectorNativeDependencyAnalysisUtils` | Pure functions: filtering custom fields and grouping dependency results by referencing component type. |
 | `InspectorNativeRecordAccess` (Apex) | Read-only `UserRecordAccess` lookup for a given user + record Id. |
 | `InspectorNativeObjectPicker` (Apex) | Read-only, cacheable object lists (`getCreatableObjects`, `getQueryableObjects`). |
 | `InspectorNativeSoqlRunner` (Apex) | Read-only SOQL execution for Query Records. |
@@ -277,6 +360,8 @@ to hide.
 | `InspectorNativeFlsMatrix` (Apex) | Reads the full field x permission-set matrix plus object-level access, auto-grants object-level Read where a field grant needs it (`ensureObjectReadForFieldGrants`), and bulk-saves both (`saveFieldPermissions`). |
 | `InspectorNativeFlsGrant` (Apex) | One (field, permission set) cell's desired Read/Edit state - a parameter type for `saveFieldPermissions`. |
 | `InspectorNativeObjectPermissionGrant` (Apex) | One permission set's desired object-level access on the FLS Matrix's object - the other parameter type for `saveFieldPermissions`. |
+| `InspectorNativePicklistManager` (Apex) | GETs then PATCHes a custom picklist field's full Tooling API metadata to add/activate/deactivate its values (`getPicklistValues`, `savePicklistValues`) - for the Picklist Manager tab. Same Tooling API callout shape as `InspectorNativeFieldCreator`, reusing the same `InspectorNativeSessionId` session bridge. |
+| `InspectorNativeDependencyAnalysis` (Apex) | Queries the Tooling API's Dependency API for what references a custom field/object (`getFieldReferences`, `getObjectReferences`) - for the Impact Analysis tab. Read-only, but still needs the Tooling API callout - `MetadataComponentDependency` isn't queryable through plain Apex SOQL. |
 | Custom Tab / Custom Application (`Salesforce_Inspector_Native`) | App Launcher entry point. |
 | Permission Set (`Salesforce_Inspector_Native`) | Grants the app, its tab, all Apex classes, and access to the `InspectorNativeSessionId` Visualforce page - deliberately no object/field permissions, see "Setting it up" above. |
 | `inspectorNativeCsvUtils`, `inspectorNativeQueryBridge`, `inspectorNativeRecordEntryUtils`, `inspectorNativeSharedUtils`, `inspectorNativeMapping`, `inspectorNativeFormField` | Supporting bundles for the grid: CSV parsing/mapping, the GraphQL query-to-Promise bridge, column/mutation-building utilities, shared toast/navigation/field-model helpers, the CSV-to-field mapping dialog, and the typed form-field renderer. |

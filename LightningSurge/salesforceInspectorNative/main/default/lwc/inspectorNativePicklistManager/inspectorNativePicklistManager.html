@@ -1,0 +1,108 @@
+<template>
+  <div class="slds-p-around_medium page-container">
+    <div class="selector-row">
+      <div class="selector-item">
+        <lightning-combobox
+          label="Object"
+          placeholder="Select an object..."
+          options={objectOptions}
+          value={selectedObjectApiName}
+          disabled={isLoadingObjects}
+          onchange={handleObjectSelect}
+        ></lightning-combobox>
+      </div>
+      <div lwc:if={hasSelectedObject} class="selector-item">
+        <lightning-combobox
+          label="Picklist field"
+          placeholder="Select a custom picklist field..."
+          options={fieldOptions}
+          value={selectedFieldApiName}
+          onchange={handleFieldSelect}
+        ></lightning-combobox>
+      </div>
+    </div>
+
+    <p lwc:if={hasNoPicklistFields} class="slds-text-color_weak slds-p-top_small">
+      This object has no custom picklist fields.
+    </p>
+
+    <div lwc:if={errorText} class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-top_medium" role="alert">
+      <span>{errorText}</span>
+    </div>
+
+    <lightning-spinner lwc:if={isLoadingObjects} alternative-text="Loading objects" size="medium"></lightning-spinner>
+    <lightning-spinner lwc:if={isLoadingValues} alternative-text="Loading picklist values" size="medium"></lightning-spinner>
+
+    <template lwc:if={hasValuesLoaded}>
+      <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-top_medium slds-m-bottom_small">
+        <h3 class="slds-text-heading_small">{selectedFieldApiName} values</h3>
+        <div class="action-buttons">
+          <lightning-button label="Discard" disabled={isDiscardDisabled} onclick={handleDiscardClick}></lightning-button>
+          <lightning-button variant="brand" label="Save" disabled={isSaveDisabled} onclick={handleSaveClick}></lightning-button>
+        </div>
+      </div>
+
+      <p lwc:if={hasNoValues} class="slds-text-color_weak slds-p-around_small">This field has no values yet.</p>
+
+      <div lwc:if={values.length} class="table-container">
+        <table class="slds-table slds-table_cell-buffer slds-table_bordered values-table">
+          <thead>
+            <tr class="slds-line-height_reset">
+              <th scope="col" class="order-col"><span class="slds-assistive-text">Reorder</span></th>
+              <th scope="col">Value</th>
+              <th scope="col">Active</th>
+              <th scope="col">Default</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template for:each={values} for:item="row">
+              <tr key={row.value}>
+                <td class="order-col">
+                  <lightning-button-icon
+                    icon-name="utility:up"
+                    alternative-text="Move up"
+                    variant="border-filled"
+                    size="x-small"
+                    disabled={row.isMoveUpDisabled}
+                    data-row-index={row.rowIndex}
+                    onclick={handleMoveUpClick}
+                  ></lightning-button-icon>
+                  <lightning-button-icon
+                    icon-name="utility:down"
+                    alternative-text="Move down"
+                    variant="border-filled"
+                    size="x-small"
+                    disabled={row.isMoveDownDisabled}
+                    data-row-index={row.rowIndex}
+                    onclick={handleMoveDownClick}
+                  ></lightning-button-icon>
+                </td>
+                <td>{row.value}</td>
+                <td>
+                  <lightning-input
+                    type="toggle"
+                    label="Active"
+                    variant="label-hidden"
+                    checked={row.isActive}
+                    data-row-index={row.rowIndex}
+                    onchange={handleToggleActive}
+                  ></lightning-input>
+                </td>
+                <td>
+                  <lightning-badge lwc:if={row.isDefault} label="Default"></lightning-badge>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="selector-row slds-m-top_medium">
+        <div class="selector-item">
+          <lightning-input label="Add value" placeholder="New picklist value..." value={newValueInput} onchange={handleNewValueChange}></lightning-input>
+        </div>
+        <lightning-button label="Add Value" disabled={isAddValueDisabled} onclick={handleAddValueClick}></lightning-button>
+      </div>
+    </template>
+  </div>
+</template>

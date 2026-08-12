@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>67.0</apiVersion>
+    <isExposed>false</isExposed>
+    <description>Pure functions for the Data Masking tab: eligible-field filtering, the read query, fake-value generation, and building the preview/mutation row shapes inspectorNativeRecordEntryUtils's mutation builders expect.</description>
+</LightningComponentBundle>

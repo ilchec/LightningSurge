@@ -1,0 +1,23 @@
+.page-container {
+  max-width: 100%;
+}
+
+.selector-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.selector-item {
+  width: 20rem;
+  max-width: 100%;
+}
+
+.toggle-item {
+  width: auto;
+}
+
+.result-section {
+  max-width: 40rem;
+}

@@ -8,7 +8,7 @@ const ABOUT_NAV_NAME = 'about';
 // Bump this by hand alongside any deploy-worthy change - the whole point is a glance at the nav
 // column confirming which build is actually running in the org, especially useful mid-debugging
 // when it's not otherwise obvious whether the latest fix actually made it into a deploy.
-const APP_VERSION = '1.0';
+const APP_VERSION = '0.6.1';
 
 // One entry per toggleable tab - `developerName` matches a Salesforce_Inspector_Native_Tab__mdt
 // record's DeveloperName, `name` is this component's own internal nav/content-switch key,
@@ -29,9 +29,12 @@ const TABS = [
   { name: 'createRecords', label: 'Create Records', developerName: 'Create_Records', category: CATEGORY_DATA },
   { name: 'queryRecords', label: 'Query Records', developerName: 'Query_Records', category: CATEGORY_DATA },
   { name: 'dataExport', label: 'Data Export', developerName: 'Data_Export', category: CATEGORY_DATA },
+  { name: 'dataMasking', label: 'Data Masking', developerName: 'Data_Masking', category: CATEGORY_DATA },
   { name: 'schemaExplorer', label: 'Schema Explorer', developerName: 'Schema_Explorer', category: CATEGORY_SCHEMA },
   { name: 'relationshipMap', label: 'Relationship Map', developerName: 'Relationship_Map', category: CATEGORY_SCHEMA },
   { name: 'fieldCreator', label: 'Field Creator', developerName: 'Field_Creator', category: CATEGORY_SCHEMA },
+  { name: 'picklistManager', label: 'Picklist Manager', developerName: 'Picklist_Manager', category: CATEGORY_SCHEMA },
+  { name: 'dependencyAnalysis', label: 'Impact Analysis', developerName: 'Impact_Analysis', category: CATEGORY_SCHEMA },
   { name: 'permissionsGroups', label: 'Permissions and Groups', developerName: 'Permissions_And_Groups', category: CATEGORY_USERS_SECURITY },
   { name: 'flsMatrix', label: 'FLS Matrix', developerName: 'Fls_Matrix', category: CATEGORY_USERS_SECURITY },
   { name: 'orgChart', label: 'Org Chart', developerName: 'Org_Chart', category: CATEGORY_USERS_SECURITY },
@@ -61,22 +64,15 @@ const TAB_CONFIG_QUERY = gql`
 `;
 
 /**
- * Shell for the Salesforce Inspector Native app: a vertical nav on the left (not the previous
- * horizontal tabset - more room for tab labels as more tabs get added over time), grouped into
+ * Shell for the Salesforce Inspector Native app: a vertical nav on the left, grouped into
  * Data / Schema / Users & Security / Org Info sections (see navSections) rather than one flat list -
- * with ten tabs now spanning record data, object structure, and user/permission administration,
- * a flat list had become a mixture that was hard to scan. And the active tab's content on the
- * right. Unlike the original stateless shell, this one does own state now -
- * which tabs are enabled comes from Salesforce_Inspector_Native_Tab__mdt (one record per tab, a
- * plain Is_Enabled__c checkbox), read via a GraphQL query so toggling a tab is a Setup-only change,
- * no redeploy needed. A tab whose record doesn't exist yet, or whose config failed to load,
- * defaults to visible - a missing/failed read should never silently hide a feature.
- *
- * Field Creator ships disabled by default (see the custom metadata record) - not because the tab
- * itself is broken, but because its one write path (the Tooling API field-creation callout) is,
- * as of this writing, still unresolved despite several rounds of fixes; see
- * salesforceInspectorNative/README.md for the full story. Disabling it hides a known-broken
- * feature without deleting the code, so it can be re-enabled the moment it's actually fixed.
+ * spanning record data, object structure, and user/permission administration, a flat list had
+ * become a mixture that was hard to scan. The active tab's content renders on the right. This shell
+ * owns tab-visibility/selected-tab state - which tabs are enabled comes from
+ * Salesforce_Inspector_Native_Tab__mdt (one record per tab, a plain Is_Enabled__c checkbox), read
+ * via a GraphQL query so toggling a tab is a Setup-only change, no redeploy needed. A tab whose
+ * record doesn't exist yet, or whose config failed to load, defaults to visible - a missing/failed
+ * read should never silently hide a feature. Every tab ships enabled by default.
  *
  * The "Tab Settings" nav item doesn't render its own settings UI - custom metadata records can
  * only really be edited through Setup anyway, so it just links there via NavigationMixin rather
@@ -190,6 +186,18 @@ export default class InspectorNativeApp extends NavigationMixin(LightningElement
 
   get isRecordAccessActive() {
     return this.selectedTab === 'recordAccess';
+  }
+
+  get isDataMaskingActive() {
+    return this.selectedTab === 'dataMasking';
+  }
+
+  get isPicklistManagerActive() {
+    return this.selectedTab === 'picklistManager';
+  }
+
+  get isDependencyAnalysisActive() {
+    return this.selectedTab === 'dependencyAnalysis';
   }
 
   get isSettingsActive() {

@@ -1,0 +1,62 @@
+<template>
+  <div class="slds-p-around_medium page-container">
+    <div class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_info slds-m-bottom_medium" role="alert">
+      <span>
+        Results come from Salesforce's own Dependency API - real, but not exhaustive. Reports aren't included, results are capped at
+        2,000 references, and Flow references are shown less completely than Apex/formula references. An empty result means nothing
+        was <strong>found</strong> by this API, not a guarantee that nothing depends on this field/object.
+      </span>
+    </div>
+
+    <div class="selector-row">
+      <div class="selector-item">
+        <lightning-combobox
+          label="Object"
+          placeholder="Select an object..."
+          options={objectOptions}
+          value={selectedObjectApiName}
+          disabled={isLoadingObjects}
+          onchange={handleObjectSelect}
+        ></lightning-combobox>
+      </div>
+      <div lwc:if={hasSelectedObject} class="selector-item">
+        <lightning-combobox
+          label="Custom field"
+          placeholder="Select a custom field..."
+          options={fieldOptions}
+          value={selectedFieldApiName}
+          disabled={isFieldPickerDisabled}
+          onchange={handleFieldSelect}
+        ></lightning-combobox>
+      </div>
+      <div lwc:if={hasSelectedObject} class="selector-item toggle-item">
+        <lightning-input type="toggle" label="Whole object instead of one field" checked={isWholeObjectMode} onchange={handleWholeObjectToggle}></lightning-input>
+      </div>
+      <lightning-button lwc:if={hasSelectedObject} variant="brand" label="Analyze" disabled={isAnalyzeDisabled} onclick={handleAnalyzeClick}></lightning-button>
+    </div>
+
+    <div lwc:if={errorText} class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-top_medium" role="alert">
+      <span>{errorText}</span>
+    </div>
+
+    <lightning-spinner lwc:if={isLoadingObjects} alternative-text="Loading objects" size="medium"></lightning-spinner>
+    <lightning-spinner lwc:if={isAnalyzing} alternative-text="Analyzing dependencies" size="medium"></lightning-spinner>
+
+    <template lwc:if={hasRun}>
+      <h3 class="slds-text-heading_small slds-m-top_medium slds-m-bottom_small">References to {resultsSubjectLabel}</h3>
+
+      <p lwc:if={hasNoResults} class="slds-text-color_weak slds-p-around_small">No references found by the Dependency API.</p>
+
+      <template for:each={groupedResults} for:item="section">
+        <div key={section.componentType} class="result-section slds-m-bottom_medium">
+          <h4 class="slds-text-heading_x-small slds-m-bottom_x-small">{section.componentType} ({section.count})</h4>
+          <ul class="slds-list_dotted">
+            <template for:each={section.componentNames} for:item="name">
+              <li key={name}>{name}</li>
+            </template>
+          </ul>
+        </div>
+      </template>
+    </template>
+  </div>
+</template>

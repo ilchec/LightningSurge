@@ -38,6 +38,14 @@
         <apexClass>InspectorNativeRecordAccess</apexClass>
         <enabled>true</enabled>
     </classAccesses>
+    <classAccesses>
+        <apexClass>InspectorNativePicklistManager</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
+        <apexClass>InspectorNativeDependencyAnalysis</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
     <pageAccesses>
         <apexPage>InspectorNativeSessionId</apexPage>
         <enabled>true</enabled>
