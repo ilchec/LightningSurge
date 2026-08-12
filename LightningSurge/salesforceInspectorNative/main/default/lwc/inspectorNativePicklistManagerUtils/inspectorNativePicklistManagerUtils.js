@@ -36,6 +36,20 @@ export function toggleValueActive(values, index) {
 }
 
 /**
+ * Updates one value's display label - the *only* part of an existing value this app lets you edit
+ * in place. This is "Rename" in Salesforce's own sense (label only): the value's own identifying
+ * "value" (the underlying API-level name) is never touched by this function or exposed as editable
+ * anywhere in this tool, confirmed via research to be the safe half of the operation - existing
+ * records keep pointing to the same underlying value, unaffected, and only what's displayed
+ * changes. Changing the *value* itself is a different, much riskier operation Salesforce doesn't
+ * auto-migrate existing records for even via its own APIs (only Setup's own "Replace" flow does,
+ * as a background job) - deliberately not offered here.
+ */
+export function updateValueLabel(values, index, newLabel) {
+  return values.map((value, i) => (i === index ? { ...value, label: newLabel } : value));
+}
+
+/**
  * Appends a new, active value to the end of the list - new values are never inserted mid-list, so
  * the existing, already-in-use order is never disturbed by adding one more. Blank input is a no-op
  * (returns the same list) rather than an error - the caller decides whether to also validate

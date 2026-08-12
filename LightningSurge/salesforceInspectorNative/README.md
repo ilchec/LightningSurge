@@ -80,16 +80,37 @@ form-field renderer) are this package's own self-contained copies, all under its
   Visualforce page (`InspectorNativeSessionId`, just `{!$Api.Session_ID}`) and reads the session ID
   back via `PageReference.getContent()`.
 - **Picklist Manager tab** - pick an object, then a custom picklist field on it, and view every
-  value (active and inactive), add new ones, activate/deactivate existing ones, and reorder them
-  (Move Up/Down, one adjacent swap at a time - not free drag-and-drop) - instead of hunting through
-  Setup's per-object Field-Level detail page. Same Tooling API callout shape as Field Creator (GET
-  the field's full metadata, PATCH the whole definition back - the Tooling API doesn't support a
-  partial update); reordering has no server-side concept of its own, since Save already always sends
-  the complete value list in whatever order it's currently in. Scoped to custom picklist fields
-  only - a standard field's picklist, or a custom field built on a shared Global Value Set, lives in
-  a differently-shaped Tooling object this tool doesn't support yet, and surfaces as a clear error
-  rather than a confusing parse failure. A value's "default" flag is shown but not editable here -
-  changing which value defaults is a more consequential, separate action.
+  value (active and inactive), add new ones, activate/deactivate existing ones, rename them, and
+  reorder them (Move Up/Down, one adjacent swap at a time - not free drag-and-drop) - instead of
+  hunting through Setup's per-object Field-Level detail page. Same Tooling API callout shape as
+  Field Creator (GET the field's full metadata, PATCH the whole definition back - the Tooling API
+  doesn't support a partial update); reordering has no server-side concept of its own, since Save
+  already always sends the complete value list in whatever order it's currently in. Scoped to custom
+  picklist fields only - a standard field's picklist, or a custom field built on a shared Global
+  Value Set, lives in a differently-shaped Tooling object this tool doesn't support yet, and
+  surfaces as a clear error rather than a confusing parse failure. A value's "default" flag is shown
+  but not editable here - changing which value defaults is a more consequential, separate action.
+
+  **"Rename" edits a value's Label only - the Value column itself is never editable once a row
+  exists.** Confirmed via research that this is the real, safe distinction Salesforce itself draws:
+  renaming (the label) leaves every existing record pointing at the same underlying value,
+  unaffected - only what's displayed changes. Changing the underlying value itself is a different,
+  much riskier operation the API doesn't auto-migrate existing records for (unlike Setup's own
+  "Replace" flow, which runs as a background job specifically to handle that migration) - not
+  offered here, on either new or existing rows, to keep the mental model simple and avoid two
+  different code paths for "how a value gets its Value."
+
+  **Saving (any edit, first confirmed on a reorder) could fail with "Cannot deserialize instance of
+  complexvalue from VALUE_NULL..." - confirmed live and fixed.** Saving works by re-fetching a
+  field's full Tooling API metadata and PATCHing the whole thing back with only the value list
+  swapped out (see below) - but a GET response routinely includes fields with an explicit JSON
+  `null` for anything not applicable to a plain Picklist field (length, precision, scale, and the
+  like), and the PATCH deserializer rejects an explicit null for at least one of those same fields
+  rather than accepting it back the way GET produced it. This is a known category of Tooling API
+  round-trip gotcha (a similar case is documented elsewhere: a value set's own `valueSettings` needs
+  an explicit `[]` instead of `null` on PATCH) - the fix recursively drops every null-valued key
+  from the metadata before sending it, the general-purpose version of that same fix, rather than
+  chasing down and special-casing the one specific field that happened to trigger this error.
 
   **No "Delete Value" action, in-tool or link-out** - confirmed via research that the Tooling/
   Metadata API can't actually delete a picklist value at all, only deactivate one (already offered
@@ -343,7 +364,7 @@ to hide.
 | `inspectorNativeRecordAccess` | Record Access Inspector tab content: user search (reusing `InspectorNativePermissionAssignment.searchUsers`), record Id input, and the results, via `InspectorNativeRecordAccess`. |
 | `inspectorNativeDataMasking` | Data Masking tab content: object/field picker + preview-then-apply flow, via `inspectorNativeDataMaskingUtils`. Calls `InspectorNativeSoqlRunner` (read) and `inspectorNativeRecordEntryUtils`'s mutation builders (write) directly - no Apex class of its own. |
 | `inspectorNativeDataMaskingUtils` | Pure functions: eligible-field filtering, the masking read query, the fake-value generators, and building the preview/mutation row shapes `inspectorNativeRecordEntryUtils`'s mutation builders expect. |
-| `inspectorNativePicklistManager` | Picklist Manager tab content: object/picklist-field picker + the value table (view/add/activate/deactivate/reorder), via `inspectorNativePicklistManagerUtils`, calling `InspectorNativePicklistManager` (Apex) for the Tooling API read and save. |
+| `inspectorNativePicklistManager` | Picklist Manager tab content: object/picklist-field picker + the value table (view/add/activate/deactivate/rename/reorder), via `inspectorNativePicklistManagerUtils`, calling `InspectorNativePicklistManager` (Apex) for the Tooling API read and save. |
 | `inspectorNativePicklistManagerUtils` | Pure functions: filtering custom picklist fields, duplicate-value checks, and value list edits (toggle active, append new). |
 | `inspectorNativeDependencyAnalysis` | Impact Analysis tab content: object/field picker + whole-object toggle + grouped dependency results, via `inspectorNativeDependencyAnalysisUtils`, calling `InspectorNativeDependencyAnalysis` (Apex) for the Tooling API Dependency API read. |
 | `inspectorNativeDependencyAnalysisUtils` | Pure functions: filtering custom fields and grouping dependency results by referencing component type. |

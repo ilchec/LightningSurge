@@ -99,7 +99,17 @@ public with sharing class InspectorNativePicklistManager {
         request.setMethod('PATCH');
         request.setHeader('Authorization', 'Bearer ' + getApiSessionId());
         request.setHeader('Content-Type', 'application/json');
-        request.setBody(JSON.serialize(new Map<String, Object>{ 'Metadata' => fullMetadata }));
+        // Confirmed live: PATCHing the full Metadata blob straight back exactly as GET returned it
+        // fails ("Cannot deserialize instance of complexvalue from VALUE_NULL...") - a GET response
+        // routinely includes fields with an explicit JSON null (anything not applicable to a plain
+        // Picklist field - length, precision, scale, and the like), but the PATCH deserializer
+        // rejects an explicit null for at least one of those same fields rather than accepting it
+        // the way GET produced it. This is a known category of Tooling API round-trip gotcha (a
+        // similar case is documented elsewhere: a value set's own "valueSettings" needs an explicit
+        // [] instead of null on PATCH) - recursively dropping null-valued keys before sending is the
+        // general-purpose version of that same fix, rather than chasing down and special-casing the
+        // one specific field that happened to trigger this particular error.
+        request.setBody(JSON.serialize(new Map<String, Object>{ 'Metadata' => stripNullValues(fullMetadata) }));
 
         HttpResponse response = new Http().send(request);
         Integer statusCode = response.getStatusCode();
@@ -109,6 +119,44 @@ public with sharing class InspectorNativePicklistManager {
         result.success = statusCode == 200 || statusCode == 204;
         if (!result.success) {
             result.message = extractErrorMessage(response.getBody());
+        }
+        return result;
+    }
+
+    // Recursively drops null-valued map entries (and, within nested maps found inside lists, the
+    // same) so a PATCH body never re-asserts an explicit JSON null for a field the platform will
+    // only accept as absent - see savePicklistValues for why this exists. List *elements* that are
+    // themselves null are left alone (dropping one would shrink the array and change its meaning,
+    // unlike an optional object key, which can simply not exist).
+    @TestVisible
+    private static Map<String, Object> stripNullValues(Map<String, Object> input) {
+        Map<String, Object> result = new Map<String, Object>();
+        for (String key : input.keySet()) {
+            Object value = input.get(key);
+            if (value == null) {
+                continue;
+            }
+            if (value instanceof Map<String, Object>) {
+                result.put(key, stripNullValues((Map<String, Object>) value));
+            } else if (value instanceof List<Object>) {
+                result.put(key, stripNullValuesFromList((List<Object>) value));
+            } else {
+                result.put(key, value);
+            }
+        }
+        return result;
+    }
+
+    private static List<Object> stripNullValuesFromList(List<Object> input) {
+        List<Object> result = new List<Object>();
+        for (Object item : input) {
+            if (item instanceof Map<String, Object>) {
+                result.add(stripNullValues((Map<String, Object>) item));
+            } else if (item instanceof List<Object>) {
+                result.add(stripNullValuesFromList((List<Object>) item));
+            } else {
+                result.add(item);
+            }
         }
         return result;
     }

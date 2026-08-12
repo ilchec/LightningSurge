@@ -1,4 +1,4 @@
-import { appendNewValue, filterPicklistFields, isDuplicatePicklistValue, moveValue, toggleValueActive } from 'c/inspectorNativePicklistManagerUtils';
+import { appendNewValue, filterPicklistFields, isDuplicatePicklistValue, moveValue, toggleValueActive, updateValueLabel } from 'c/inspectorNativePicklistManagerUtils';
 
 function buildFakeObjectInfo() {
   return {
@@ -71,6 +71,30 @@ describe('toggleValueActive', () => {
     const values = [{ value: 'Open', isActive: true }];
     toggleValueActive(values, 0);
     expect(values[0].isActive).toBe(true);
+  });
+});
+
+describe('updateValueLabel', () => {
+  it('updates only the targeted entry\'s label, leaving its value and every other entry untouched', () => {
+    const values = [
+      { value: 'Open', label: 'Open' },
+      { value: 'Closed', label: 'Closed' }
+    ];
+    const updated = updateValueLabel(values, 0, 'Currently Open');
+    expect(updated[0]).toEqual({ value: 'Open', label: 'Currently Open' });
+    expect(updated[1]).toEqual(values[1]);
+  });
+
+  it('never changes the value itself, only the label', () => {
+    const values = [{ value: 'Open', label: 'Open' }];
+    const updated = updateValueLabel(values, 0, 'Something else entirely');
+    expect(updated[0].value).toBe('Open');
+  });
+
+  it('does not mutate the original array', () => {
+    const values = [{ value: 'Open', label: 'Open' }];
+    updateValueLabel(values, 0, 'Renamed');
+    expect(values[0].label).toBe('Open');
   });
 });
 

@@ -50,6 +50,7 @@
             <tr class="slds-line-height_reset">
               <th scope="col" class="order-col"><span class="slds-assistive-text">Reorder</span></th>
               <th scope="col">Value</th>
+              <th scope="col" class="label-col">Label</th>
               <th scope="col">Active</th>
               <th scope="col">Default</th>
             </tr>
@@ -78,6 +79,16 @@
                   ></lightning-button-icon>
                 </td>
                 <td>{row.value}</td>
+                <td>
+                  <lightning-input
+                    type="text"
+                    label="Label"
+                    variant="label-hidden"
+                    value={row.label}
+                    data-row-index={row.rowIndex}
+                    onchange={handleLabelChange}
+                  ></lightning-input>
+                </td>
                 <td>
                   <lightning-input
                     type="toggle"

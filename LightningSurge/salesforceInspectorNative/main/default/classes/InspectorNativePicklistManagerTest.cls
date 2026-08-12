@@ -9,6 +9,9 @@ private class InspectorNativePicklistManagerTest {
         String metadataGetResponseBody;
         Integer patchStatusCode = 204;
         String patchResponseBody = '';
+        // Captured so tests can assert on exactly what savePicklistValues actually sent - see
+        // patchDoesNotReSendExplicitNullFields below.
+        String lastPatchRequestBody;
 
         public HttpResponse respond(HttpRequest request) {
             HttpResponse response = new HttpResponse();
@@ -16,6 +19,7 @@ private class InspectorNativePicklistManagerTest {
                 response.setStatusCode(200);
                 response.setBody(queryResponseBody);
             } else if (request.getMethod() == 'PATCH') {
+                lastPatchRequestBody = request.getBody();
                 response.setStatusCode(patchStatusCode);
                 response.setBody(patchResponseBody);
             } else {
@@ -173,6 +177,68 @@ private class InspectorNativePicklistManagerTest {
 
         System.assertEquals(false, result.success);
         System.assertEquals('INVALID_FIELD: value set entry is invalid', result.message);
+    }
+
+    // Confirmed live: PATCHing a field's full Metadata straight back exactly as GET returned it -
+    // including its explicit JSON nulls for fields that don't apply to a plain Picklist (length,
+    // precision, scale, and the like) - fails with "Cannot deserialize instance of complexvalue
+    // from VALUE_NULL...". This reproduces that shape directly and confirms the outgoing PATCH body
+    // no longer carries those null-valued keys forward.
+    @IsTest
+    static void savePicklistValuesDoesNotReSendExplicitNullFieldsFromTheMetadataItRead() {
+        stubApiSessionId();
+        DispatchingMock mock = new DispatchingMock();
+        mock.metadataGetResponseBody = '{"Metadata":{"label":"My Picklist","type":"Picklist","length":null,"precision":null,'
+            + '"valueSet":{"valueSetDefinition":{"sorted":false,"value":[{"valueName":"Open","label":"Open","default":true,"isActive":true}]}}}}';
+        Test.setMock(HttpCalloutMock.class, mock);
+
+        InspectorNativePicklistManager.PicklistValueOption existingValue = new InspectorNativePicklistManager.PicklistValueOption();
+        existingValue.value = 'Open';
+        existingValue.label = 'Open';
+        existingValue.isActive = true;
+        existingValue.isDefault = true;
+
+        Test.startTest();
+        InspectorNativePicklistManager.savePicklistValues(
+            '00N000000000001AAA',
+            JSON.serialize(new List<InspectorNativePicklistManager.PicklistValueOption>{ existingValue })
+        );
+        Test.stopTest();
+
+        System.assert(!mock.lastPatchRequestBody.contains('"length"'), 'A null length should be dropped, not re-sent as null: ' + mock.lastPatchRequestBody);
+        System.assert(
+            !mock.lastPatchRequestBody.contains('"precision"'),
+            'A null precision should be dropped, not re-sent as null: ' + mock.lastPatchRequestBody
+        );
+        System.assert(mock.lastPatchRequestBody.contains('"label":"My Picklist"'), 'Non-null fields should still be sent through unchanged');
+    }
+
+    @IsTest
+    static void stripNullValuesDropsNullEntriesAtEveryNestingLevelButKeepsEverythingElse() {
+        Map<String, Object> input = new Map<String, Object>{
+            'topLevelNull' => null,
+            'topLevelValue' => 'kept',
+            'nestedMap' => new Map<String, Object>{ 'innerNull' => null, 'innerValue' => 'kept' },
+            'listOfMaps' => new List<Object>{ new Map<String, Object>{ 'itemNull' => null, 'itemValue' => 'kept' } },
+            'listWithNullElement' => new List<Object>{ 'kept', null }
+        };
+
+        Map<String, Object> result = InspectorNativePicklistManager.stripNullValues(input);
+
+        System.assert(!result.containsKey('topLevelNull'), 'A null-valued top-level key should be dropped');
+        System.assertEquals('kept', result.get('topLevelValue'));
+
+        Map<String, Object> nestedResult = (Map<String, Object>) result.get('nestedMap');
+        System.assert(!nestedResult.containsKey('innerNull'), 'A null-valued key nested inside a map should be dropped too');
+        System.assertEquals('kept', nestedResult.get('innerValue'));
+
+        List<Object> listOfMapsResult = (List<Object>) result.get('listOfMaps');
+        Map<String, Object> firstListItem = (Map<String, Object>) listOfMapsResult[0];
+        System.assert(!firstListItem.containsKey('itemNull'), 'A null-valued key inside a map found within a list should be dropped too');
+        System.assertEquals('kept', firstListItem.get('itemValue'));
+
+        List<Object> listWithNullElementResult = (List<Object>) result.get('listWithNullElement');
+        System.assertEquals(2, listWithNullElementResult.size(), 'A null list *element* is not a map key - dropping it would shrink and change the array, so it stays');
     }
 
     @IsTest

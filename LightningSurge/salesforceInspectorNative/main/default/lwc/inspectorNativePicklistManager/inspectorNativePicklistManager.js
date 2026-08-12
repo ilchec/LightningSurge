@@ -1,20 +1,28 @@
 import getPicklistValues from '@salesforce/apex/InspectorNativePicklistManager.getPicklistValues';
 import savePicklistValues from '@salesforce/apex/InspectorNativePicklistManager.savePicklistValues';
 import getQueryableObjects from '@salesforce/apex/InspectorNativeObjectPicker.getQueryableObjects';
-import { appendNewValue, filterPicklistFields, isDuplicatePicklistValue, moveValue, toggleValueActive } from 'c/inspectorNativePicklistManagerUtils';
+import { appendNewValue, filterPicklistFields, isDuplicatePicklistValue, moveValue, toggleValueActive, updateValueLabel } from 'c/inspectorNativePicklistManagerUtils';
 import { showToast } from 'c/inspectorNativeSharedUtils';
 import { getObjectInfo } from 'lightning/uiObjectInfoApi';
 import { LightningElement, wire } from 'lwc';
 
 /**
  * Picklist Manager tab: pick an object, then a custom picklist field on it, and view/add/activate/
- * deactivate/reorder its values in one table - instead of hunting through Setup's per-object
+ * deactivate/reorder/rename its values in one table - instead of hunting through Setup's per-object
  * Field-Level detail page. Backed by InspectorNativePicklistManager (Tooling API callout, same
  * shape as Field Creator's field-creation callout) - see that class's doc comment for the scope
  * this tool deliberately stays within (custom fields only, no Global Value Sets). Reordering is
  * single adjacent-pair swaps (Move Up/Down), not free drag-and-drop - Save always resends the
  * complete value list in whatever order it's currently in, so that's the entire mechanism; no
  * separate "order" concept exists anywhere else.
+ *
+ * "Rename" edits a value's Label only, never its underlying Value - confirmed via research that
+ * this is the actual, safe distinction Salesforce itself draws: renaming (label) leaves every
+ * existing record pointing at the same underlying value, unaffected, while changing the value
+ * itself isn't something the API auto-migrates existing records for (unlike Setup's own "Replace"
+ * flow, a background job). The Value column is therefore never editable once a row exists, whether
+ * it came from the initial read or was just added in this same session - see
+ * inspectorNativePicklistManagerUtils.updateValueLabel's own doc comment for the fuller story.
  *
  * getPicklistValues/savePicklistValues are both called imperatively, not via @wire - a Tooling API
  * read is a live callout every time (not meaningfully cacheable the way getObjectInfo is, and
@@ -190,6 +198,11 @@ export default class InspectorNativePicklistManager extends LightningElement {
   handleToggleActive(event) {
     const rowIndex = Number(event.currentTarget.dataset.rowIndex);
     this._values = toggleValueActive(this._values, rowIndex);
+  }
+
+  handleLabelChange(event) {
+    const rowIndex = Number(event.currentTarget.dataset.rowIndex);
+    this._values = updateValueLabel(this._values, rowIndex, event.target.value);
   }
 
   handleMoveUpClick(event) {
