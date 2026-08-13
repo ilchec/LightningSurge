@@ -31,6 +31,56 @@
       ></lightning-dual-listbox>
     </div>
 
+    <div lwc:if={hasSelectedObject} class="filter-section slds-m-top_medium">
+      <h3 class="slds-text-heading_small slds-m-bottom_small">Filter (optional)</h3>
+
+      <ul lwc:if={hasFilters} class="slds-list_dotted slds-m-bottom_small">
+        <template for:each={filters} for:item="filter">
+          <li key={filter.fieldApiName} class="filter-item">
+            <span>{filter.summary}</span>
+            <lightning-button-icon
+              icon-name="utility:close"
+              alternative-text="Remove filter"
+              variant="border-filled"
+              size="x-small"
+              data-filter-index={filter.filterIndex}
+              onclick={handleRemoveFilterClick}
+            ></lightning-button-icon>
+          </li>
+        </template>
+      </ul>
+
+      <div class="selector-row">
+        <div class="selector-item">
+          <lightning-combobox
+            label="Field"
+            placeholder="Select a field..."
+            options={filterFieldOptions}
+            value={filterFieldApiName}
+            onchange={handleFilterFieldChange}
+          ></lightning-combobox>
+        </div>
+        <div lwc:if={filterFieldApiName} class="selector-item operator-item">
+          <lightning-combobox label="Operator" options={operatorOptions} value={filterOperator} onchange={handleFilterOperatorChange}></lightning-combobox>
+        </div>
+        <div lwc:if={filterFieldApiName} class="selector-item">
+          <template lwc:if={isFilterValueBooleanType}>
+            <lightning-combobox label="Value" options={booleanValueOptions} value={filterValue} onchange={handleFilterBooleanValueChange}></lightning-combobox>
+          </template>
+          <template lwc:elseif={isFilterValueDateType}>
+            <lightning-input type="date" label="Value" value={filterValue} onchange={handleFilterValueChange}></lightning-input>
+          </template>
+          <template lwc:elseif={isFilterValueNumberType}>
+            <lightning-input type="number" label="Value" value={filterValue} onchange={handleFilterValueChange}></lightning-input>
+          </template>
+          <template lwc:else>
+            <lightning-input type="text" label="Value" value={filterValue} onchange={handleFilterValueChange}></lightning-input>
+          </template>
+        </div>
+        <lightning-button lwc:if={filterFieldApiName} label="Add Filter" disabled={isAddFilterDisabled} onclick={handleAddFilterClick}></lightning-button>
+      </div>
+    </div>
+
     <lightning-button
       lwc:if={hasSelectedObject}
       variant="brand"

@@ -2,11 +2,17 @@
  * Pure functions behind the Data Masking tab. Reuses this app's existing record-entry mutation
  * builders (buildUpsertMutation/extractSaveResults, from inspectorNativeRecordEntryUtils - the same
  * ones Query Records already trusts) rather than duplicating that logic - this file only builds the
- * masking-specific pieces: which fields are eligible, the read query, and the fake replacement
- * values themselves.
+ * masking-specific pieces: which fields are eligible, the (optionally filtered) read query, and the
+ * fake replacement values themselves.
  *
  * `dataType`/`updateable` are both confirmed real UI API FieldInfo properties (see
  * inspectorNativeSchemaExplorerUtils's own doc comment for the verification story).
+ *
+ * The filter read query is the first place in this package that builds raw SOQL text client-side
+ * with a *user-typed* value interpolated into it (every other SOQL/GraphQL builder here only ever
+ * interpolates field/object API names, which come from constrained dropdowns, not free text) - see
+ * escapeSoqlValue/escapeSoqlLikeValue's own doc comments for the SOQL-injection-relevant escaping
+ * that exists specifically because of that.
  */
 
 // Deliberately narrow - text-ish/contact-detail types only. A formula, picklist, or system field
@@ -23,9 +29,88 @@ export function filterMaskableFields(objectInfo) {
     .sort((a, b) => a.label.localeCompare(b.label));
 }
 
-/** Plain "fetch N records with just these fields" SOQL - no WHERE clause, matches Data Export's own "export everything" scope. */
-export function buildMaskingSoql(objectApiName, fieldApiNames, maxRows) {
-  return `SELECT Id, ${fieldApiNames.join(', ')} FROM ${objectApiName} LIMIT ${maxRows}`;
+// Filter fields aren't limited to maskable types (the whole point is usually to scope by something
+// you're *not* masking, e.g. a status/environment flag) - but a few types are excluded because
+// buildFilterCondition below doesn't have a correct SOQL literal form for them (DateTime needs a
+// full ISO literal this tool doesn't collect via a plain date input, compound/encrypted types
+// aren't filterable via a simple equality/contains comparison at all).
+const EXCLUDED_FILTER_DATA_TYPES = new Set(['DateTime', 'Address', 'Location', 'Base64', 'EncryptedString', 'MultiPicklist']);
+
+/** Every field on the object usable as a filter condition, sorted by label - see the exclusion note above. */
+export function filterableFieldOptions(objectInfo) {
+  const fields = objectInfo?.fields || {};
+  return Object.keys(fields)
+    .filter((apiName) => !EXCLUDED_FILTER_DATA_TYPES.has(fields[apiName].dataType))
+    .map((apiName) => ({ apiName, label: fields[apiName].label || apiName, dataType: fields[apiName].dataType }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+
+const NUMERIC_FILTER_DATA_TYPES = new Set(['Double', 'Int', 'Currency', 'Percent']);
+const DATE_LITERAL_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Text-ish types are the only ones "contains" (a SOQL LIKE) makes sense for - every other type
+ * offers only "equals" as an operator, both client-side (see the component's operatorOptions) and
+ * here (buildFilterCondition ignores operator entirely for non-text types).
+ */
+export function isContainsEligible(dataType) {
+  return !NUMERIC_FILTER_DATA_TYPES.has(dataType) && dataType !== 'Boolean' && dataType !== 'Date';
+}
+
+// SOQL string literals are single-quoted; a backslash or an embedded single quote in untrusted
+// input must be escaped or it breaks out of the literal - this is a real SOQL-injection-relevant
+// spot (the filter value is user-typed, then interpolated directly into a SOQL string this tool
+// sends to InspectorNativeSoqlRunner.runQuery, which executes it as-is). Backslash is escaped
+// first, deliberately, so a raw backslash immediately before a quote can't neutralize the quote's
+// own escaping.
+export function escapeSoqlValue(rawValue) {
+  return String(rawValue).replaceAll('\\', '\\\\').replaceAll("'", "\\'");
+}
+
+/** Same escaping as escapeSoqlValue, plus neutralizing LIKE's own wildcard characters (%, _) so a literal % or _ in the search text is matched literally, not treated as a wildcard. */
+export function escapeSoqlLikeValue(rawValue) {
+  return String(rawValue).replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_').replaceAll("'", "\\'");
+}
+
+/**
+ * Builds one filter's own SOQL condition fragment, formatting the value as the field's dataType
+ * requires - SOQL Boolean/numeric/Date literals are unquoted, everything else is a quoted, escaped
+ * string. "contains" always renders as a LIKE regardless of what's passed for other types (see
+ * isContainsEligible - the UI never offers it for a type where that wouldn't make sense).
+ */
+export function buildFilterCondition(filter) {
+  const { fieldApiName, dataType, operator, value } = filter;
+  if (operator === 'contains') {
+    return `${fieldApiName} LIKE '%${escapeSoqlLikeValue(value)}%'`;
+  }
+  if (dataType === 'Boolean') {
+    return `${fieldApiName} = ${String(value).toLowerCase() === 'true' ? 'true' : 'false'}`;
+  }
+  if (NUMERIC_FILTER_DATA_TYPES.has(dataType)) {
+    const parsed = Number(value);
+    return `${fieldApiName} = ${Number.isNaN(parsed) ? 'null' : parsed}`;
+  }
+  if (dataType === 'Date') {
+    // A SOQL Date literal is unquoted, so this can't lean on escapeSoqlValue's quote-escaping the
+    // way every other branch does - an unvalidated value here would be a real SOQL-injection path.
+    // lightning-input type="date" normally guarantees a plain YYYY-MM-DD string, but that's a
+    // client-side UI constraint, not something enforced between here and the query this tool sends
+    // - so it's re-validated against that exact shape here regardless of what actually produced the
+    // value, falling back to the always-safe "null" literal (matching the numeric branch's own
+    // fallback) rather than ever passing an unvalidated string straight into the query unescaped.
+    return DATE_LITERAL_PATTERN.test(value) ? `${fieldApiName} = ${value}` : `${fieldApiName} = null`;
+  }
+  return `${fieldApiName} = '${escapeSoqlValue(value)}'`;
+}
+
+/**
+ * "Fetch N records with just these fields" SOQL, optionally narrowed by a set of filter conditions
+ * ANDed together - the entire filtering mechanism this tool offers (no OR, no grouping), matching
+ * the same "start narrow" scope Data Export's own filter-free read uses as its baseline.
+ */
+export function buildMaskingSoql(objectApiName, fieldApiNames, maxRows, filters) {
+  const whereClause = filters && filters.length ? ` WHERE ${filters.map(buildFilterCondition).join(' AND ')}` : '';
+  return `SELECT Id, ${fieldApiNames.join(', ')} FROM ${objectApiName}${whereClause} LIMIT ${maxRows}`;
 }
 
 /**

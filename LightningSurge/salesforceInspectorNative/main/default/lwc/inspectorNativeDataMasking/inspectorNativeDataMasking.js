@@ -6,7 +6,9 @@ import {
   buildMaskingSoql,
   buildMatchedIdMap,
   buildPreviewRows,
-  filterMaskableFields
+  filterableFieldOptions,
+  filterMaskableFields,
+  isContainsEligible
 } from 'c/inspectorNativeDataMaskingUtils';
 import { buildUpsertMutation, extractSaveResults } from 'c/inspectorNativeRecordEntryUtils';
 import { showToast } from 'c/inspectorNativeSharedUtils';
@@ -16,6 +18,7 @@ import { LightningElement, wire } from 'lwc';
 
 const DEFAULT_MAX_ROWS = 50;
 const HARD_MAX_ROWS = 200;
+const DEFAULT_OPERATOR = 'equals';
 
 /**
  * Data Masking tab: overwrite a small, fixed set of built-in fake values (name/email/phone/generic
@@ -30,6 +33,14 @@ const HARD_MAX_ROWS = 200;
  * values without touching anything; Apply is the only step that actually writes. Row count is capped
  * at 200 (a write operation, not a read one - kept modest deliberately, unlike Data Export's much
  * higher read-only cap).
+ *
+ * Filters narrow which records are read in the first place - any field on the object (not just the
+ * ones being masked; the point is usually to scope by something you're *not* masking, e.g. an
+ * environment/status flag), ANDed together, no OR/grouping. This is the first place in this
+ * package that builds raw SOQL text with a user-typed value in it, rather than only field/object
+ * API names off constrained dropdowns - see inspectorNativeDataMaskingUtils's escapeSoqlValue/
+ * escapeSoqlLikeValue for the SOQL-injection-relevant escaping that exists specifically because of
+ * that.
  * @alias InspectorNativeDataMasking
  * @extends LightningElement
  * @hideconstructor
@@ -40,11 +51,15 @@ export default class InspectorNativeDataMasking extends LightningElement {
   isApplying = false;
   errorText;
   maxRows = DEFAULT_MAX_ROWS;
+  filterFieldApiName = '';
+  filterOperator = DEFAULT_OPERATOR;
+  filterValue = '';
 
   _objectOptions = [];
   _selectedObjectApiName;
   _objectInfo;
   _selectedFieldApiNames = [];
+  _filters = [];
   _previewRows;
   _appliedResults;
 
@@ -96,6 +111,104 @@ export default class InspectorNativeDataMasking extends LightningElement {
     return this._selectedFieldApiNames;
   }
 
+  get filterFieldOptions() {
+    return this._objectInfo ? filterableFieldOptions(this._objectInfo).map((field) => ({ label: field.label, value: field.apiName })) : [];
+  }
+
+  // Every filterable field, keyed by apiName, purely so the currently-selected filter field's own
+  // dataType can be looked up without re-filtering/re-sorting the whole list on every keystroke.
+  get filterableFieldsByApiName() {
+    const fields = this._objectInfo ? filterableFieldOptions(this._objectInfo) : [];
+    return new Map(fields.map((field) => [field.apiName, field]));
+  }
+
+  get selectedFilterFieldDataType() {
+    return this.filterableFieldsByApiName.get(this.filterFieldApiName)?.dataType;
+  }
+
+  get isFilterValueBooleanType() {
+    return this.selectedFilterFieldDataType === 'Boolean';
+  }
+
+  get isFilterValueDateType() {
+    return this.selectedFilterFieldDataType === 'Date';
+  }
+
+  get isFilterValueNumberType() {
+    return ['Double', 'Int', 'Currency', 'Percent'].includes(this.selectedFilterFieldDataType);
+  }
+
+  get booleanValueOptions() {
+    return [
+      { label: 'True', value: 'true' },
+      { label: 'False', value: 'false' }
+    ];
+  }
+
+  get operatorOptions() {
+    const options = [{ label: 'Equals', value: 'equals' }];
+    if (isContainsEligible(this.selectedFilterFieldDataType)) {
+      options.push({ label: 'Contains', value: 'contains' });
+    }
+    return options;
+  }
+
+  get isAddFilterDisabled() {
+    return !this.filterFieldApiName || !String(this.filterValue ?? '').trim();
+  }
+
+  // Display-ready summary per active filter (component layer), not in the pure filter-building
+  // utils - same split as every other *Utils/*component pair in this app.
+  get filters() {
+    return this._filters.map((filter, index) => ({
+      ...filter,
+      filterIndex: index,
+      summary: `${this.filterableFieldsByApiName.get(filter.fieldApiName)?.label ?? filter.fieldApiName} ${filter.operator} "${filter.value}"`
+    }));
+  }
+
+  get hasFilters() {
+    return this._filters.length > 0;
+  }
+
+  handleFilterFieldChange(event) {
+    this.filterFieldApiName = event.detail.value;
+    this.filterOperator = DEFAULT_OPERATOR;
+    this.filterValue = '';
+  }
+
+  handleFilterOperatorChange(event) {
+    this.filterOperator = event.detail.value;
+  }
+
+  handleFilterValueChange(event) {
+    this.filterValue = event.target.value;
+  }
+
+  handleFilterBooleanValueChange(event) {
+    this.filterValue = event.detail.value;
+  }
+
+  handleAddFilterClick() {
+    if (this.isAddFilterDisabled) return;
+    this._filters = [
+      ...this._filters,
+      { fieldApiName: this.filterFieldApiName, dataType: this.selectedFilterFieldDataType, operator: this.filterOperator, value: this.filterValue }
+    ];
+    this.filterFieldApiName = '';
+    this.filterOperator = DEFAULT_OPERATOR;
+    this.filterValue = '';
+    this._previewRows = undefined;
+    this._appliedResults = undefined;
+  }
+
+  handleRemoveFilterClick(event) {
+    const filterIndex = Number(event.currentTarget.dataset.filterIndex);
+    this._filters = this._filters.filter((filter, index) => index !== filterIndex);
+    this._previewRows = undefined;
+    this._appliedResults = undefined;
+  }
+
   get isPreviewDisabled() {
     return this.isPreviewing || !this.hasSelectedObject || this._selectedFieldApiNames.length === 0 || !this.maxRows || this.maxRows < 1;
   }
@@ -136,6 +249,10 @@ export default class InspectorNativeDataMasking extends LightningElement {
     this._selectedObjectApiName = event.detail.value;
     this._objectInfo = undefined;
     this._selectedFieldApiNames = [];
+    this._filters = [];
+    this.filterFieldApiName = '';
+    this.filterOperator = DEFAULT_OPERATOR;
+    this.filterValue = '';
     this._previewRows = undefined;
     this._appliedResults = undefined;
     this.errorText = undefined;
@@ -160,7 +277,7 @@ export default class InspectorNativeDataMasking extends LightningElement {
     this._appliedResults = undefined;
     try {
       const fields = this.maskableFields.filter((field) => this._selectedFieldApiNames.includes(field.apiName));
-      const soql = buildMaskingSoql(this._selectedObjectApiName, fields.map((field) => field.apiName), this.maxRows);
+      const soql = buildMaskingSoql(this._selectedObjectApiName, fields.map((field) => field.apiName), this.maxRows, this._filters);
       const result = await runQuery({ soql });
       this._previewRows = buildPreviewRows(result.records, fields);
     } catch (error) {

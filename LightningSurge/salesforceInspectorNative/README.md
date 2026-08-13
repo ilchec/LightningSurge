@@ -184,6 +184,23 @@ form-field renderer) are this package's own self-contained copies, all under its
   this tool doesn't offer, so neither is ever offered as a masking target. Row count is capped at
   200 - a write operation, not a read one, kept deliberately more modest than Data Export's much
   higher read-only cap.
+
+  **An optional filter narrows which records get read (and therefore masked) in the first place** -
+  pick any field on the object (not just the ones being masked - the point is usually to scope by
+  something you're *not* masking, e.g. an environment/status flag), an operator ("Equals," or
+  "Contains" for text-ish types only), and a value; multiple filters are ANDed together, no OR or
+  grouping. This is the first place in this package that builds raw SOQL text with a *user-typed*
+  value interpolated into it, rather than only field/object API names off constrained dropdowns -
+  a real SOQL-injection-relevant spot, handled with proper single-quote/backslash escaping (and,
+  for "Contains," escaping LIKE's own `%`/`_` wildcards too so a literal percent sign or underscore
+  in the search text is matched literally). Boolean/numeric/Date values are formatted as unquoted
+  SOQL literals per their type, not quoted strings, since SOQL requires that distinction - and since
+  an unquoted literal can't lean on the same quote-escaping every other type gets, a Date value is
+  independently re-validated against a strict `YYYY-MM-DD` shape (falling back to the always-safe
+  `null` literal otherwise) rather than trusted just because the date picker UI normally produces
+  that shape. A handful of field types (DateTime, compound types like Address/Location, encrypted
+  fields, multi-select picklists) aren't offered as filter fields at all - this tool doesn't have a
+  correct SOQL literal form for them.
 - **FLS Matrix tab** - every field-level-security-eligible field on an object crossed with every
   editable permission set, Read/Edit checkboxes pre-loaded with current access, bulk-saveable in one
   call. Unlike Field Creator's Permissions modal (additive only - it only ever grants a
@@ -362,7 +379,7 @@ to hide.
 | `inspectorNativeOrgChart` | Org Chart tab content: search box, Reports To/centered-user/Direct Reports layout, via `inspectorNativeOrgChartUtils`. |
 | `inspectorNativeOrgChartUtils` | Pure functions: building the user/manager/direct-reports/search GraphQL queries and extracting rows from their responses. |
 | `inspectorNativeRecordAccess` | Record Access Inspector tab content: user search (reusing `InspectorNativePermissionAssignment.searchUsers`), record Id input, and the results, via `InspectorNativeRecordAccess`. |
-| `inspectorNativeDataMasking` | Data Masking tab content: object/field picker + preview-then-apply flow, via `inspectorNativeDataMaskingUtils`. Calls `InspectorNativeSoqlRunner` (read) and `inspectorNativeRecordEntryUtils`'s mutation builders (write) directly - no Apex class of its own. |
+| `inspectorNativeDataMasking` | Data Masking tab content: object/field picker + optional filter builder + preview-then-apply flow, via `inspectorNativeDataMaskingUtils`. Calls `InspectorNativeSoqlRunner` (read) and `inspectorNativeRecordEntryUtils`'s mutation builders (write) directly - no Apex class of its own. |
 | `inspectorNativeDataMaskingUtils` | Pure functions: eligible-field filtering, the masking read query, the fake-value generators, and building the preview/mutation row shapes `inspectorNativeRecordEntryUtils`'s mutation builders expect. |
 | `inspectorNativePicklistManager` | Picklist Manager tab content: object/picklist-field picker + the value table (view/add/activate/deactivate/rename/reorder), via `inspectorNativePicklistManagerUtils`, calling `InspectorNativePicklistManager` (Apex) for the Tooling API read and save. |
 | `inspectorNativePicklistManagerUtils` | Pure functions: filtering custom picklist fields, duplicate-value checks, and value list edits (toggle active, append new). |

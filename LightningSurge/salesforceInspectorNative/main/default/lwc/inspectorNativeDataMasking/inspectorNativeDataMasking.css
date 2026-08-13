@@ -18,6 +18,20 @@
   max-width: 40rem;
 }
 
+.filter-section {
+  max-width: 50rem;
+}
+
+.filter-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.operator-item {
+  width: 10rem;
+}
+
 .preview-button {
   display: block;
   margin-top: 1.5rem;
