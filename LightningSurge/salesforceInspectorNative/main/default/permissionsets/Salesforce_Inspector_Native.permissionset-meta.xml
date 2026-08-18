@@ -50,6 +50,10 @@
         <apexClass>InspectorNativeUserComparison</apexClass>
         <enabled>true</enabled>
     </classAccesses>
+    <classAccesses>
+        <apexClass>InspectorNativeTranslationSearch</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
     <pageAccesses>
         <apexPage>InspectorNativeSessionId</apexPage>
         <enabled>true</enabled>

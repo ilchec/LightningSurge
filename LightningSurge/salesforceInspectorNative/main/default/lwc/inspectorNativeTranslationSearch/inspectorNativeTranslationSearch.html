@@ -1,0 +1,138 @@
+<template>
+  <div class="slds-p-around_medium page-container">
+    <div class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_info slds-m-bottom_medium" role="alert">
+      <span>
+        Scans every custom object/field's label and help text, plus every picklist field's values (standard or custom), and
+        every Custom Label - all live, in one pass, so results can take a moment in a large org. Results are capped at 100.
+        Custom Label results link straight to that label's own detail page - add a per-language override there directly.
+        Object results link to that object's Setup detail page. Field/Picklist Value results link into Translation
+        Workbench itself, where you pick the Setup Component/object/field to enter that translation.
+      </span>
+    </div>
+
+    <div class="selector-item search-item">
+      <lightning-input
+        type="search"
+        label="Search text"
+        placeholder="Type at least 2 characters..."
+        value={searchTerm}
+        onchange={handleSearchChange}
+      ></lightning-input>
+      <p lwc:if={isSearchTermTooShort} class="slds-text-body_small slds-text-color_weak">Type at least 2 characters.</p>
+    </div>
+
+    <div lwc:if={errorText} class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-top_medium" role="alert">
+      <span>{errorText}</span>
+    </div>
+
+    <lightning-spinner lwc:if={isSearching} alternative-text="Searching" size="medium"></lightning-spinner>
+
+    <p lwc:if={hasSearchedWithNoMatches} class="slds-text-color_weak slds-p-around_small slds-m-top_medium">
+      No matches found for "{trimmedSearchTerm}".
+    </p>
+
+    <template for:each={groupedResults} for:item="section">
+      <div key={section.itemType} class="category-section slds-m-top_medium">
+        <h3 class="slds-text-heading_small slds-m-bottom_small">{section.itemType} ({section.count})</h3>
+        <div class="table-container">
+          <template lwc:if={section.isCustomLabelSection}>
+            <table class="slds-table slds-table_cell-buffer slds-table_bordered results-table">
+              <thead>
+                <tr class="slds-line-height_reset">
+                  <th scope="col">Value</th>
+                  <th scope="col">Name</th>
+                  <th scope="col">Category</th>
+                  <th scope="col"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <template for:each={section.items} for:item="item">
+                  <tr key={item.key}>
+                    <td>{item.matchedText}</td>
+                    <td>{item.labelName}</td>
+                    <td>{item.labelCategory}</td>
+                    <td>
+                      <button
+                        lwc:if={item.setupUrl}
+                        type="button"
+                        class="slds-button detail-link"
+                        data-setup-url={item.setupUrl}
+                        onclick={handleResultSetupClick}
+                      >
+                        View in Setup
+                      </button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </template>
+          <template lwc:elseif={section.isObjectSection}>
+            <table class="slds-table slds-table_cell-buffer slds-table_bordered results-table">
+              <thead>
+                <tr class="slds-line-height_reset">
+                  <th scope="col">Object Label</th>
+                  <th scope="col">API Name</th>
+                  <th scope="col"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <template for:each={section.items} for:item="item">
+                  <tr key={item.key}>
+                    <td>{item.objectLabel}</td>
+                    <td>{item.objectApiName}</td>
+                    <td>
+                      <button
+                        lwc:if={item.setupUrl}
+                        type="button"
+                        class="slds-button detail-link"
+                        data-setup-url={item.setupUrl}
+                        onclick={handleResultSetupClick}
+                      >
+                        View in Setup
+                      </button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </template>
+          <template lwc:else>
+            <table class="slds-table slds-table_cell-buffer slds-table_bordered results-table">
+              <thead>
+                <tr class="slds-line-height_reset">
+                  <th scope="col">Matched Text</th>
+                  <th scope="col">Matched On</th>
+                  <th scope="col">Object</th>
+                  <th scope="col">Field</th>
+                  <th scope="col"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <template for:each={section.items} for:item="item">
+                  <tr key={item.key}>
+                    <td>{item.matchedText}</td>
+                    <td>{item.matchedOn}</td>
+                    <td>{item.objectLabel} ({item.objectApiName})</td>
+                    <td>{item.fieldLabel} ({item.fieldApiName})</td>
+                    <td>
+                      <button
+                        lwc:if={item.setupUrl}
+                        type="button"
+                        class="slds-button detail-link"
+                        data-setup-url={item.setupUrl}
+                        onclick={handleResultSetupClick}
+                      >
+                        Translation Workbench
+                      </button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </template>
+        </div>
+      </div>
+    </template>
+  </div>
+</template>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>67.0</apiVersion>
+    <isExposed>false</isExposed>
+    <description>Pure functions for the Translation Finder tab: grouping search results by item type and building each result's View in Setup link.</description>
+</LightningComponentBundle>

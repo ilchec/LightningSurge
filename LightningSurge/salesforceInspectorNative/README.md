@@ -4,10 +4,11 @@
 
 A standalone Lightning app, reached via the App Launcher, bundling admin/developer tools built
 around the UI API GraphQL wire adapter (`lightning/graphql`) instead of Apex wherever possible. It
-has fifteen tabs, grouped into four sections on a vertical nav on the left:
+has sixteen tabs, grouped into four sections on a vertical nav on the left:
 
 - **Data** - Create Records, Query Records, Data Export, Data Masking
-- **Schema** - Schema Explorer, Relationship Map, Field Creator, Picklist Manager, Impact Analysis
+- **Schema** - Schema Explorer, Relationship Map, Field Creator, Picklist Manager, Impact Analysis,
+  Translation Finder
 - **Users & Security** - Permissions and Groups, FLS Matrix, Org Chart, Record Access Inspector, User
   Comparison
 - **Org Info** - Limits and Licenses
@@ -144,6 +145,42 @@ form-field renderer) are this package's own self-contained copies, all under its
   callout to work at all - `MetadataComponentDependency` isn't queryable through plain Apex SOQL,
   confirmed via research before building this, so it's a different risk tier than this app's other
   read-only tools even though nothing here ever writes anything.
+- **Translation Finder tab** - type text and see every place in the org's metadata it could be,
+  grouped by type: Custom Label, Object, Field (label *or* help text - shown as separate matches so
+  it's clear which one matched), and Picklist Value. Solves a specific Translation Workbench
+  annoyance: that tool makes you already know exactly what you're translating (Setup Component =
+  Custom Label, or Custom Field, or Picklist Value, etc.) before it'll show you anything - this tab
+  is the opposite, a free-text lookup so you can tell it a piece of text and see what it might be, no
+  prior knowledge needed. Object and Field matches are scoped to custom (`__c`) API names only -
+  Translation Workbench only lets you translate custom object labels and custom field labels/help
+  text, not standard ones (Salesforce ships those translations itself). **Picklist Value matches are
+  not scoped to custom fields** - Translation Workbench also lets you translate picklist values on
+  standard fields (e.g. `Opportunity.StageName`'s own values), a different scope than Picklist
+  Manager's own edit-scope above (that one is about what the Tooling API can safely PATCH, not what
+  Translation Workbench can translate).
+
+  Each result links somewhere useful, though not identically - there's no way to deep-link straight
+  into a specific item's own Translation Workbench entry (it's a picker-based Setup UI: you land on
+  the screen, then pick Setup Component/object/field/language yourself). **Custom Label** results
+  link to that label's own Setup detail page via its raw record Id (`/{id}`, universal Salesforce
+  record routing, not a guessed page name) - that page has its own per-language **Override** related
+  list, so a translation goes in right there, no separate wizard needed. **Object** results link to
+  that object's own Setup detail page, the same link-out Schema Explorer already offers.
+  **Field/Picklist Value** results link straight to Translation Workbench's **Translate** screen
+  (`/lightning/setup/LabelWorkbenchTranslate/home`) rather than the field's Setup detail page, since
+  Setup detail pages don't have anything translation-related on them at all - not deep-linked to that
+  specific field, but the right screen instead of making you hunt for it via Setup's own Quick Find.
+
+  Custom Labels are found via the same Tooling API `ExternalString` HTTP callout shape Field
+  Creator/Picklist Manager/Impact Analysis already use (own-domain, `InspectorNativeSessionId`
+  session bridge, no Remote Site Setting) - they're the one thing here not reachable through a plain
+  Schema describe. Everything else (Object/Field/Picklist Value matches) comes from a live
+  `Schema.getGlobalDescribe()` scan with no callout at all, the same mechanism
+  `InspectorNativeObjectPicker` already uses to list objects. That scan runs across every custom
+  object/field in the org on every search - real but not necessarily fast in a very large org with
+  several managed packages installed, called out with a persistent caveat banner. **Results are
+  capped at 100**, with the scan exiting as soon as the cap is hit. Requires at least 2 characters
+  before searching at all.
 - **Permissions and Groups tab** - bulk-assign Permission Sets, Permission Set Groups, and Public
   Groups to a set of users in one operation. A 3-step inline flow: pick which items to assign from a
   searchable, type-filterable table; pick which users to assign them to (server-searched by name/
@@ -291,8 +328,9 @@ form-field renderer) are this package's own self-contained copies, all under its
 
 Everything above is UI API/GraphQL except: the object list, running SOQL, field deployment/
 permissions, permission/group assignment, org info reads, the FLS matrix, the record access read,
-picklist value management, dependency analysis, and the User Comparison tab's Permission Set/Group/
-Public Group/Queue reads. Each has a narrow, single-purpose Apex class behind it:
+picklist value management, dependency analysis, the User Comparison tab's Permission Set/Group/
+Public Group/Queue reads, and the Translation Finder search. Each has a narrow, single-purpose Apex
+class behind it:
 
 - `InspectorNativeObjectPicker` - `getCreatableObjects` (Create Records, Field Creator) and
   `getQueryableObjects` (Schema Explorer, Relationship Map, Data Export, Data Masking, FLS Matrix,
@@ -328,16 +366,23 @@ Public Group/Queue reads. Each has a narrow, single-purpose Apex class behind it
   Groups, Public Group membership, and Queue membership (`PermissionSetAssignment`/`GroupMember`,
   plain SOQL) for the User Comparison tab. Read-only, `with sharing`, no DML anywhere - same
   low-risk tier as `InspectorNativeOrgInfo`/`InspectorNativeRecordAccess`.
+- `InspectorNativeTranslationSearch` - `search` for the Translation Finder tab. Custom Label matches
+  come from the Tooling API's `ExternalString` object over the same HTTP callout shape as
+  `InspectorNativeDependencyAnalysis`; Object/Field/Picklist Value matches come from a live
+  `Schema.getGlobalDescribe()` scan needing no callout at all, the same mechanism
+  `InspectorNativeObjectPicker` uses. Read-only, no DML anywhere - but the Custom Label half's
+  callout puts the whole class in the callout risk tier below, not the zero-callout one.
 
-Three classes here genuinely need the Tooling API callout (`InspectorNativeFieldCreator`,
-`InspectorNativePicklistManager`, `InspectorNativeDependencyAnalysis`) - all reuse the same
-`InspectorNativeSessionId` Visualforce session bridge and own-domain endpoint, no Remote Site
-Setting needed for any of them. `InspectorNativeObjectPicker`, `InspectorNativeSoqlRunner`,
-`InspectorNativeOrgInfo`, `InspectorNativeRecordAccess`, and `InspectorNativeUserComparison` are
-read-only, low-risk exceptions to the no-Apex convention the rest of this repo follows.
-`InspectorNativeDependencyAnalysis` is also
-read-only (no DML), but not the same zero-callout risk tier as those five - it makes a real HTTP
-callout, even though nothing it does ever writes anything. `InspectorNativeFieldCreator`,
+Four classes here genuinely need the Tooling API callout (`InspectorNativeFieldCreator`,
+`InspectorNativePicklistManager`, `InspectorNativeDependencyAnalysis`,
+`InspectorNativeTranslationSearch`) - all reuse the same `InspectorNativeSessionId` Visualforce
+session bridge and own-domain endpoint, no Remote Site Setting needed for any of them.
+`InspectorNativeObjectPicker`, `InspectorNativeSoqlRunner`, `InspectorNativeOrgInfo`,
+`InspectorNativeRecordAccess`, and `InspectorNativeUserComparison` are read-only, low-risk
+exceptions to the no-Apex convention the rest of this repo follows.
+`InspectorNativeDependencyAnalysis`/`InspectorNativeTranslationSearch` are also read-only (no DML),
+but not the same zero-callout risk tier as those five - they make a real HTTP callout, even though
+neither ever writes anything. `InspectorNativeFieldCreator`,
 `InspectorNativeFieldPermissions`, `InspectorNativePermissionAssignment`, `InspectorNativeFlsMatrix`,
 and `InspectorNativePicklistManager` write to org schema/security instead - a created field, a
 permission grant, a group assignment, or an edited picklist value list all persist until someone
@@ -348,7 +393,7 @@ care than the read-only ones.
 
 Which tabs show up in the left-hand nav is controlled by `Salesforce_Inspector_Native_Tab__mdt`, a
 custom metadata type with one record per tab and a single `Is_Enabled__c` checkbox.
-`inspectorNativeApp` reads it via a plain GraphQL query on load - no Apex involved. All fifteen
+`inspectorNativeApp` reads it via a plain GraphQL query on load - no Apex involved. All sixteen
 tabs ship enabled by default.
 
 To show or hide a tab: Setup → Custom Metadata Types → **Salesforce Inspector Native Tab** → Manage
@@ -385,10 +430,10 @@ to hide.
    - FLS Matrix additionally needs **"Customize Application"** to save changes - the same rule Field
      Creator/Picklist Manager need, since field-level security is a schema-adjacent setting.
    - Limits and Licenses, Schema Explorer, Relationship Map, Data Export, Org Chart, Record Access
-     Inspector, User Comparison, and Impact Analysis need nothing beyond the base permission set -
-     all eight are read-only. Impact Analysis makes a Tooling API callout like Field Creator/
-     Picklist Manager do, but since it never writes anything, the "Customize Application" rule above
-     doesn't apply to it.
+     Inspector, User Comparison, Impact Analysis, and Translation Finder need nothing beyond the base
+     permission set - all nine are read-only. Impact Analysis and Translation Finder both make a
+     Tooling API callout like Field Creator/Picklist Manager do, but since neither ever writes
+     anything, the "Customize Application" rule above doesn't apply to either.
 3. App Launcher → search "Salesforce Inspector Native".
 
 ## Package contents
@@ -426,6 +471,8 @@ to hide.
 | `inspectorNativePicklistManagerUtils` | Pure functions: filtering custom picklist fields, duplicate-value checks, and value list edits (toggle active, append new). |
 | `inspectorNativeDependencyAnalysis` | Impact Analysis tab content: object/field picker + whole-object toggle + grouped dependency results, via `inspectorNativeDependencyAnalysisUtils`, calling `InspectorNativeDependencyAnalysis` (Apex) for the Tooling API Dependency API read. |
 | `inspectorNativeDependencyAnalysisUtils` | Pure functions: filtering custom fields and grouping dependency results by referencing component type. |
+| `inspectorNativeTranslationSearch` | Translation Finder tab content: a single search box + grouped results, via `inspectorNativeTranslationSearchUtils`, calling `InspectorNativeTranslationSearch` (Apex) for the Custom Label Tooling API callout and the describe-based Object/Field/Picklist Value scan. |
+| `inspectorNativeTranslationSearchUtils` | Pure functions: grouping search results by item type and building each result's View in Setup link. |
 | `InspectorNativeRecordAccess` (Apex) | Read-only `UserRecordAccess` lookup for a given user + record Id. |
 | `InspectorNativeObjectPicker` (Apex) | Read-only, cacheable object lists (`getCreatableObjects`, `getQueryableObjects`). |
 | `InspectorNativeSoqlRunner` (Apex) | Read-only SOQL execution for Query Records. |
@@ -441,6 +488,7 @@ to hide.
 | `InspectorNativeObjectPermissionGrant` (Apex) | One permission set's desired object-level access on the FLS Matrix's object - the other parameter type for `saveFieldPermissions`. |
 | `InspectorNativePicklistManager` (Apex) | GETs then PATCHes a custom picklist field's full Tooling API metadata to add/activate/deactivate its values (`getPicklistValues`, `savePicklistValues`) - for the Picklist Manager tab. Same Tooling API callout shape as `InspectorNativeFieldCreator`, reusing the same `InspectorNativeSessionId` session bridge. |
 | `InspectorNativeDependencyAnalysis` (Apex) | Queries the Tooling API's Dependency API for what references a custom field/object (`getFieldReferences`, `getObjectReferences`) - for the Impact Analysis tab. Read-only, but still needs the Tooling API callout - `MetadataComponentDependency` isn't queryable through plain Apex SOQL. |
+| `InspectorNativeTranslationSearch` (Apex) | Free-text lookup across Custom Labels (Tooling API `ExternalString` callout), and Objects/Fields/Picklist Values (`Schema.getGlobalDescribe()` scan, no callout) (`search`) - for the Translation Finder tab. Read-only, results capped at 100. |
 | `InspectorNativeUserComparison` (Apex) | Reads a user's directly-assigned Permission Sets, Permission Set Groups, Public Group membership, and Queue membership (`getUserAssignments`) - for the User Comparison tab. Read-only, no DML. |
 | Custom Tab / Custom Application (`Salesforce_Inspector_Native`) | App Launcher entry point. |
 | Permission Set (`Salesforce_Inspector_Native`) | Grants the app, its tab, all Apex classes, and access to the `InspectorNativeSessionId` Visualforce page - deliberately no object/field permissions, see "Setting it up" above. |

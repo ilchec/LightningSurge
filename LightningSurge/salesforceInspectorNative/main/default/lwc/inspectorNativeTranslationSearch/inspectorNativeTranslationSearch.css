@@ -1,0 +1,21 @@
+.page-container {
+  max-width: 100%;
+}
+
+.selector-item {
+  width: 24rem;
+  max-width: 100%;
+}
+
+.category-section {
+  max-width: 60rem;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.results-table th,
+.results-table td {
+  white-space: nowrap;
+}

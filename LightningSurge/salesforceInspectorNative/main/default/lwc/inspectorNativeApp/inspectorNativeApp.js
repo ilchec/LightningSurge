@@ -8,7 +8,7 @@ const ABOUT_NAV_NAME = 'about';
 // Bump this by hand alongside any deploy-worthy change - the whole point is a glance at the nav
 // column confirming which build is actually running in the org, especially useful mid-debugging
 // when it's not otherwise obvious whether the latest fix actually made it into a deploy.
-const APP_VERSION = '0.7.0';
+const APP_VERSION = '0.8.0';
 
 // One entry per toggleable tab - `developerName` matches a Salesforce_Inspector_Native_Tab__mdt
 // record's DeveloperName, `name` is this component's own internal nav/content-switch key,
@@ -35,6 +35,7 @@ const TABS = [
   { name: 'fieldCreator', label: 'Field Creator', developerName: 'Field_Creator', category: CATEGORY_SCHEMA },
   { name: 'picklistManager', label: 'Picklist Manager', developerName: 'Picklist_Manager', category: CATEGORY_SCHEMA },
   { name: 'dependencyAnalysis', label: 'Impact Analysis', developerName: 'Impact_Analysis', category: CATEGORY_SCHEMA },
+  { name: 'translationSearch', label: 'Translation Finder', developerName: 'Translation_Finder', category: CATEGORY_SCHEMA },
   { name: 'permissionsGroups', label: 'Permissions and Groups', developerName: 'Permissions_And_Groups', category: CATEGORY_USERS_SECURITY },
   { name: 'flsMatrix', label: 'FLS Matrix', developerName: 'Fls_Matrix', category: CATEGORY_USERS_SECURITY },
   { name: 'orgChart', label: 'Org Chart', developerName: 'Org_Chart', category: CATEGORY_USERS_SECURITY },
@@ -203,6 +204,10 @@ export default class InspectorNativeApp extends NavigationMixin(LightningElement
 
   get isDependencyAnalysisActive() {
     return this.selectedTab === 'dependencyAnalysis';
+  }
+
+  get isTranslationSearchActive() {
+    return this.selectedTab === 'translationSearch';
   }
 
   get isSettingsActive() {
