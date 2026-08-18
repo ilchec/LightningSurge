@@ -46,6 +46,10 @@
         <apexClass>InspectorNativeDependencyAnalysis</apexClass>
         <enabled>true</enabled>
     </classAccesses>
+    <classAccesses>
+        <apexClass>InspectorNativeUserComparison</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
     <pageAccesses>
         <apexPage>InspectorNativeSessionId</apexPage>
         <enabled>true</enabled>

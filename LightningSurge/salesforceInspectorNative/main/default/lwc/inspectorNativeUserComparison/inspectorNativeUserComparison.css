@@ -1,0 +1,106 @@
+.page-container {
+  max-width: 100%;
+}
+
+.selector-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.selector-item {
+  width: 20rem;
+  max-width: 100%;
+}
+
+.toggle-item {
+  width: auto;
+}
+
+.search-item {
+  position: relative;
+}
+
+.search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  margin-top: 0.25rem;
+  border: 1px solid var(--lwc-colorBorder, #dddbda);
+  border-radius: 0.25rem;
+  background: var(--lwc-colorBackgroundAlt, #ffffff);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.16);
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+.search-result {
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--lwc-colorBorder, #dddbda);
+}
+
+.search-result:last-child {
+  border-bottom: none;
+}
+
+.search-result:hover {
+  background: var(--lwc-colorBackgroundHint, #f3f3f3);
+}
+
+.result-name {
+  font-weight: 700;
+}
+
+.result-detail {
+  font-size: 0.8125rem;
+  color: var(--lwc-colorTextWeak, #706e6b);
+}
+
+.selected-user-chip {
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.category-section {
+  max-width: 60rem;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.comparison-table th,
+.comparison-table td {
+  white-space: nowrap;
+}
+
+/* Each category renders its own separate <table>, so without this, each one's columns auto-size
+   only to its own content - the "Anne van Riel"/"Ilia Chechuro" columns end up at a different x
+   position in the Permission Sets table (long labels like "Agentforce Service Agent
+   Configuration" push the Item column wide) than in Public Groups (short labels like "Default"
+   keep it narrow), even though every table shares the same three-column shape. A shared min-width
+   per column, applied via the class every table uses, keeps that offset identical table to table
+   as long as content fits within it; a table with content genuinely longer than these reserves
+   (e.g. an unusually long permission set label) grows past the minimum on its own, falling out of
+   alignment only in that one case, rather than truncating anything to force a hard match. */
+.comparison-table th:first-child,
+.comparison-table td:first-child {
+  min-width: 20rem;
+}
+
+.comparison-table th:not(:first-child),
+.comparison-table td:not(:first-child) {
+  min-width: 12rem;
+}
+
+.comparison-row_different {
+  background: var(--lwc-colorBackgroundHint, #fdf4e7);
+}
+

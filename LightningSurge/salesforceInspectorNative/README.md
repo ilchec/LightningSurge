@@ -4,11 +4,12 @@
 
 A standalone Lightning app, reached via the App Launcher, bundling admin/developer tools built
 around the UI API GraphQL wire adapter (`lightning/graphql`) instead of Apex wherever possible. It
-has fourteen tabs, grouped into four sections on a vertical nav on the left:
+has fifteen tabs, grouped into four sections on a vertical nav on the left:
 
 - **Data** - Create Records, Query Records, Data Export, Data Masking
 - **Schema** - Schema Explorer, Relationship Map, Field Creator, Picklist Manager, Impact Analysis
-- **Users & Security** - Permissions and Groups, FLS Matrix, Org Chart, Record Access Inspector
+- **Users & Security** - Permissions and Groups, FLS Matrix, Org Chart, Record Access Inspector, User
+  Comparison
 - **Org Info** - Limits and Licenses
 
 The section grouping is a fixed, client-side concept, not admin-configurable; a section with
@@ -253,13 +254,45 @@ form-field renderer) are this package's own self-contained copies, all under its
   person running this tool being able to see the record themselves too; an empty/no-access result
   can mean either the target user genuinely has no access, or the record isn't visible to whoever's
   running the check - that ambiguity is called out directly in the tab.
+- **User Comparison tab** - pick two users (the same server-searched picker Permissions and Groups/
+  Record Access Inspector use) and see them side by side, grouped into six categories: Basic
+  Settings (Username, Email, Alias, Title, Department, Division, Active, User Type, Time Zone,
+  Locale, Language), Profile & Role (Profile, Role, Manager), Permission Sets, Permission Set Groups,
+  Public Groups, and Queues. Basic Settings/Profile & Role show each user's actual value side by
+  side; the other four instead render one row per distinct item across both users with a checkbox
+  per side (checked = that user has it) - a checkbox column instead of repeating the item's own
+  name, which is already the row's label, left-aligned under its header the same way FLS Matrix's
+  own per-cell checkboxes are (not centered - a checkbox is far narrower than the column its header
+  name drives, so centering it drifts it away from that header once the column is wider than either
+  needs). Either way, a row where the two sides differ is visually highlighted. Every category's
+  table shares the same minimum column widths, so the Item/User A/User B columns line up at the same
+  position from one category's table to the next, not just within a single one. A **Show All / Show
+  Only Different** toggle controls the view - defaults to different only, per category (a category
+  that's fully identical simply doesn't render at all while "different only" is selected).
+
+  Basic Settings/Profile & Role come from two independent, single-`eq`-match GraphQL queries (one per
+  selected user), the same query shape Org Chart's `Manager { Name { value } }` traversal already
+  proved out - `Profile { Name { value } }`/`UserRole { Name { value } }` traversal is a reasonable,
+  low-risk extension of that same proven mechanism, but hasn't been used anywhere else in this repo
+  before, so it's the one piece of this tab most worth confirming on first live use. Permission Sets/
+  Permission Set Groups/Public Groups/Queues come from `InspectorNativeUserComparison.
+  getUserAssignments` (Apex, read-only, no DML) - this repo has only ever queried
+  `PermissionSetAssignment`/`GroupMember` via plain Apex SOQL (never GraphQL), so that's the path
+  reused here too rather than an unverified GraphQL-exposure gamble. Public Group/Queue membership
+  both come from the same `GroupMember` query, split by `Group.Type` (`Regular` vs `Queue`) - the
+  same scoping Permissions and Groups' own assignable-items list already uses for Public Groups.
+  Role-type groups are excluded since Role already has its own dedicated comparison row. Unlike FLS
+  Matrix/Picklist Manager (editors, which only ever offer `Type = 'Regular'` permission sets - the
+  only ones actually editable), this is read-only reporting: every permission set a user directly
+  has is shown, Standard/package-provided ones included, since the point is visibility into
+  everything assigned, not what's safe to edit.
 
 ## Where Apex is used
 
 Everything above is UI API/GraphQL except: the object list, running SOQL, field deployment/
 permissions, permission/group assignment, org info reads, the FLS matrix, the record access read,
-picklist value management, and dependency analysis. Each has a narrow, single-purpose Apex class
-behind it:
+picklist value management, dependency analysis, and the User Comparison tab's Permission Set/Group/
+Public Group/Queue reads. Each has a narrow, single-purpose Apex class behind it:
 
 - `InspectorNativeObjectPicker` - `getCreatableObjects` (Create Records, Field Creator) and
   `getQueryableObjects` (Schema Explorer, Relationship Map, Data Export, Data Masking, FLS Matrix,
@@ -291,14 +324,19 @@ behind it:
   anywhere in this class), but still needs the same Tooling API HTTP callout as the two classes
   above - confirmed via research that `MetadataComponentDependency` isn't queryable through plain
   Apex SOQL at all, only through the Tooling API's own REST query endpoint.
+- `InspectorNativeUserComparison` - reads a user's directly-assigned Permission Sets, Permission Set
+  Groups, Public Group membership, and Queue membership (`PermissionSetAssignment`/`GroupMember`,
+  plain SOQL) for the User Comparison tab. Read-only, `with sharing`, no DML anywhere - same
+  low-risk tier as `InspectorNativeOrgInfo`/`InspectorNativeRecordAccess`.
 
 Three classes here genuinely need the Tooling API callout (`InspectorNativeFieldCreator`,
 `InspectorNativePicklistManager`, `InspectorNativeDependencyAnalysis`) - all reuse the same
 `InspectorNativeSessionId` Visualforce session bridge and own-domain endpoint, no Remote Site
 Setting needed for any of them. `InspectorNativeObjectPicker`, `InspectorNativeSoqlRunner`,
-`InspectorNativeOrgInfo`, and `InspectorNativeRecordAccess` are read-only, low-risk exceptions to
-the no-Apex convention the rest of this repo follows. `InspectorNativeDependencyAnalysis` is also
-read-only (no DML), but not the same zero-callout risk tier as those four - it makes a real HTTP
+`InspectorNativeOrgInfo`, `InspectorNativeRecordAccess`, and `InspectorNativeUserComparison` are
+read-only, low-risk exceptions to the no-Apex convention the rest of this repo follows.
+`InspectorNativeDependencyAnalysis` is also
+read-only (no DML), but not the same zero-callout risk tier as those five - it makes a real HTTP
 callout, even though nothing it does ever writes anything. `InspectorNativeFieldCreator`,
 `InspectorNativeFieldPermissions`, `InspectorNativePermissionAssignment`, `InspectorNativeFlsMatrix`,
 and `InspectorNativePicklistManager` write to org schema/security instead - a created field, a
@@ -310,7 +348,7 @@ care than the read-only ones.
 
 Which tabs show up in the left-hand nav is controlled by `Salesforce_Inspector_Native_Tab__mdt`, a
 custom metadata type with one record per tab and a single `Is_Enabled__c` checkbox.
-`inspectorNativeApp` reads it via a plain GraphQL query on load - no Apex involved. All fourteen
+`inspectorNativeApp` reads it via a plain GraphQL query on load - no Apex involved. All fifteen
 tabs ship enabled by default.
 
 To show or hide a tab: Setup → Custom Metadata Types → **Salesforce Inspector Native Tab** → Manage
@@ -347,9 +385,10 @@ to hide.
    - FLS Matrix additionally needs **"Customize Application"** to save changes - the same rule Field
      Creator/Picklist Manager need, since field-level security is a schema-adjacent setting.
    - Limits and Licenses, Schema Explorer, Relationship Map, Data Export, Org Chart, Record Access
-     Inspector, and Impact Analysis need nothing beyond the base permission set - all seven are
-     read-only. Impact Analysis makes a Tooling API callout like Field Creator/Picklist Manager do,
-     but since it never writes anything, the "Customize Application" rule above doesn't apply to it.
+     Inspector, User Comparison, and Impact Analysis need nothing beyond the base permission set -
+     all eight are read-only. Impact Analysis makes a Tooling API callout like Field Creator/
+     Picklist Manager do, but since it never writes anything, the "Customize Application" rule above
+     doesn't apply to it.
 3. App Launcher → search "Salesforce Inspector Native".
 
 ## Package contents
@@ -379,6 +418,8 @@ to hide.
 | `inspectorNativeOrgChart` | Org Chart tab content: search box, Reports To/centered-user/Direct Reports layout, via `inspectorNativeOrgChartUtils`. |
 | `inspectorNativeOrgChartUtils` | Pure functions: building the user/manager/direct-reports/search GraphQL queries and extracting rows from their responses. |
 | `inspectorNativeRecordAccess` | Record Access Inspector tab content: user search (reusing `InspectorNativePermissionAssignment.searchUsers`), record Id input, and the results, via `InspectorNativeRecordAccess`. |
+| `inspectorNativeUserComparison` | User Comparison tab content: two user pickers (reusing `InspectorNativePermissionAssignment.searchUsers`) + the Show All/Different Only toggle + one table per category, via `inspectorNativeUserComparisonUtils` and `InspectorNativeUserComparison` (Apex). |
+| `inspectorNativeUserComparisonUtils` | Pure functions: building each user's GraphQL comparison query, flattening its response, building field-diff and set-diff rows, and filtering to differences only. |
 | `inspectorNativeDataMasking` | Data Masking tab content: object/field picker + optional filter builder + preview-then-apply flow, via `inspectorNativeDataMaskingUtils`. Calls `InspectorNativeSoqlRunner` (read) and `inspectorNativeRecordEntryUtils`'s mutation builders (write) directly - no Apex class of its own. |
 | `inspectorNativeDataMaskingUtils` | Pure functions: eligible-field filtering, the masking read query, the fake-value generators, and building the preview/mutation row shapes `inspectorNativeRecordEntryUtils`'s mutation builders expect. |
 | `inspectorNativePicklistManager` | Picklist Manager tab content: object/picklist-field picker + the value table (view/add/activate/deactivate/rename/reorder), via `inspectorNativePicklistManagerUtils`, calling `InspectorNativePicklistManager` (Apex) for the Tooling API read and save. |
@@ -400,6 +441,7 @@ to hide.
 | `InspectorNativeObjectPermissionGrant` (Apex) | One permission set's desired object-level access on the FLS Matrix's object - the other parameter type for `saveFieldPermissions`. |
 | `InspectorNativePicklistManager` (Apex) | GETs then PATCHes a custom picklist field's full Tooling API metadata to add/activate/deactivate its values (`getPicklistValues`, `savePicklistValues`) - for the Picklist Manager tab. Same Tooling API callout shape as `InspectorNativeFieldCreator`, reusing the same `InspectorNativeSessionId` session bridge. |
 | `InspectorNativeDependencyAnalysis` (Apex) | Queries the Tooling API's Dependency API for what references a custom field/object (`getFieldReferences`, `getObjectReferences`) - for the Impact Analysis tab. Read-only, but still needs the Tooling API callout - `MetadataComponentDependency` isn't queryable through plain Apex SOQL. |
+| `InspectorNativeUserComparison` (Apex) | Reads a user's directly-assigned Permission Sets, Permission Set Groups, Public Group membership, and Queue membership (`getUserAssignments`) - for the User Comparison tab. Read-only, no DML. |
 | Custom Tab / Custom Application (`Salesforce_Inspector_Native`) | App Launcher entry point. |
 | Permission Set (`Salesforce_Inspector_Native`) | Grants the app, its tab, all Apex classes, and access to the `InspectorNativeSessionId` Visualforce page - deliberately no object/field permissions, see "Setting it up" above. |
 | `inspectorNativeCsvUtils`, `inspectorNativeQueryBridge`, `inspectorNativeRecordEntryUtils`, `inspectorNativeSharedUtils`, `inspectorNativeMapping`, `inspectorNativeFormField` | Supporting bundles for the grid: CSV parsing/mapping, the GraphQL query-to-Promise bridge, column/mutation-building utilities, shared toast/navigation/field-model helpers, the CSV-to-field mapping dialog, and the typed form-field renderer. |

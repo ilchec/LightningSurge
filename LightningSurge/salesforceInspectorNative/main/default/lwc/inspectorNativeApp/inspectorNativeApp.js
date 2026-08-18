@@ -8,7 +8,7 @@ const ABOUT_NAV_NAME = 'about';
 // Bump this by hand alongside any deploy-worthy change - the whole point is a glance at the nav
 // column confirming which build is actually running in the org, especially useful mid-debugging
 // when it's not otherwise obvious whether the latest fix actually made it into a deploy.
-const APP_VERSION = '0.6.1';
+const APP_VERSION = '0.7.0';
 
 // One entry per toggleable tab - `developerName` matches a Salesforce_Inspector_Native_Tab__mdt
 // record's DeveloperName, `name` is this component's own internal nav/content-switch key,
@@ -39,6 +39,7 @@ const TABS = [
   { name: 'flsMatrix', label: 'FLS Matrix', developerName: 'Fls_Matrix', category: CATEGORY_USERS_SECURITY },
   { name: 'orgChart', label: 'Org Chart', developerName: 'Org_Chart', category: CATEGORY_USERS_SECURITY },
   { name: 'recordAccess', label: 'Record Access Inspector', developerName: 'Record_Access', category: CATEGORY_USERS_SECURITY },
+  { name: 'userComparison', label: 'User Comparison', developerName: 'User_Comparison', category: CATEGORY_USERS_SECURITY },
   { name: 'limitsLicenses', label: 'Limits and Licenses', developerName: 'Limits_And_Licenses', category: CATEGORY_ORG_INFO }
 ];
 
@@ -186,6 +187,10 @@ export default class InspectorNativeApp extends NavigationMixin(LightningElement
 
   get isRecordAccessActive() {
     return this.selectedTab === 'recordAccess';
+  }
+
+  get isUserComparisonActive() {
+    return this.selectedTab === 'userComparison';
   }
 
   get isDataMaskingActive() {

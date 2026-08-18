@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>67.0</apiVersion>
+    <isExposed>false</isExposed>
+    <description>User Comparison tab content: two user pickers + category tables comparing Basic Settings, Profile &amp; Role, Permission Sets, Permission Set Groups, and Public Groups, via inspectorNativeUserComparisonUtils and InspectorNativeUserComparison (Apex).</description>
+</LightningComponentBundle>

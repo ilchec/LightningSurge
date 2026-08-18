@@ -1,0 +1,96 @@
+<template>
+  <div class="slds-p-around_medium page-container">
+    <div class="selector-row">
+      <div class="selector-item search-item">
+        <lightning-input
+          type="search"
+          label="User A"
+          placeholder="Search by name..."
+          value={userASearchTerm}
+          onchange={handleUserASearchChange}
+        ></lightning-input>
+        <div lwc:if={hasSearchResultsA} class="search-results">
+          <template for:each={searchResultsA} for:item="result">
+            <div key={result.id} class="search-result" data-user-id={result.id} onclick={handleUserAResultClick}>
+              <div class="result-name">{result.name}</div>
+              <div class="result-detail">{result.username}</div>
+            </div>
+          </template>
+        </div>
+        <div lwc:if={hasSelectedUserA} class="selected-user-chip">
+          <span>{selectedUserA.name} ({selectedUserA.username})</span>
+          <button type="button" class="slds-button detail-link" onclick={handleClearUserA}>Change</button>
+        </div>
+      </div>
+
+      <div class="selector-item search-item">
+        <lightning-input
+          type="search"
+          label="User B"
+          placeholder="Search by name..."
+          value={userBSearchTerm}
+          onchange={handleUserBSearchChange}
+        ></lightning-input>
+        <div lwc:if={hasSearchResultsB} class="search-results">
+          <template for:each={searchResultsB} for:item="result">
+            <div key={result.id} class="search-result" data-user-id={result.id} onclick={handleUserBResultClick}>
+              <div class="result-name">{result.name}</div>
+              <div class="result-detail">{result.username}</div>
+            </div>
+          </template>
+        </div>
+        <div lwc:if={hasSelectedUserB} class="selected-user-chip">
+          <span>{selectedUserB.name} ({selectedUserB.username})</span>
+          <button type="button" class="slds-button detail-link" onclick={handleClearUserB}>Change</button>
+        </div>
+      </div>
+
+      <div lwc:if={hasBothUsersSelected} class="selector-item toggle-item">
+        <lightning-input type="toggle" label="Show All" checked={showAll} onchange={handleShowAllToggle}></lightning-input>
+        <p class="slds-text-body_small slds-text-color_weak">Off shows only differences.</p>
+      </div>
+    </div>
+
+    <div lwc:if={errorText} class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error slds-m-top_medium" role="alert">
+      <span>{errorText}</span>
+    </div>
+
+    <lightning-spinner lwc:if={isLoadingComparison} alternative-text="Loading comparison" size="medium"></lightning-spinner>
+
+    <p lwc:if={hasNoDifferences} class="slds-text-color_weak slds-p-around_small slds-m-top_medium">
+      No differences found between {selectedUserA.name} and {selectedUserB.name}.
+    </p>
+
+    <template for:each={categories} for:item="category">
+      <div key={category.name} class="category-section slds-m-top_medium">
+        <h3 class="slds-text-heading_small slds-m-bottom_small">{category.name}</h3>
+        <div class="table-container">
+          <table class="slds-table slds-table_cell-buffer slds-table_bordered comparison-table">
+            <thead>
+              <tr class="slds-line-height_reset">
+                <th scope="col">Item</th>
+                <th scope="col">{selectedUserA.name}</th>
+                <th scope="col">{selectedUserB.name}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template for:each={category.rows} for:item="row">
+                <tr key={row.label} class={row.rowClass}>
+                  <td>{row.label}</td>
+                  <template lwc:if={category.isCheckboxCategory}>
+                    <td><input type="checkbox" checked={row.hasA} disabled aria-label="Assigned" /></td>
+                    <td><input type="checkbox" checked={row.hasB} disabled aria-label="Assigned" /></td>
+                  </template>
+                  <template lwc:else>
+                    <td>{row.valueA}</td>
+                    <td>{row.valueB}</td>
+                  </template>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </template>
+  </div>
+</template>

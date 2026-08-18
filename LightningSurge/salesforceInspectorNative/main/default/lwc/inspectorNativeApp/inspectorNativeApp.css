@@ -4,9 +4,20 @@
   gap: 1rem;
 }
 
+/* Sticky + its own capped-height scroll area, independent of the content column's scroll - without
+   this, nav and content share one page-level scroll, so scrolling down to reach a nav item near the
+   bottom of a long list leaves the page scrolled past the top of whatever tab you just clicked into,
+   forcing a manual scroll back up every time. Capping at the viewport height (minus a little
+   breathing room) means a nav list that's shorter than the viewport just stays fully visible as the
+   page scrolls (the common case); one taller than the viewport gets its own internal scrollbar
+   instead of ever needing the outer page to scroll to reach a lower item. */
 .nav-column {
   width: 15rem;
   flex-shrink: 0;
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
 }
 
 .app-version {
